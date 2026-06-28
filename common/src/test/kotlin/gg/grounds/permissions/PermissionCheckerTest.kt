@@ -4,8 +4,8 @@ import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
 import java.util.UUID
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -19,7 +19,53 @@ class PermissionCheckerTest {
         val snapshot = snapshot(listOf(allow("chat.send")))
         val permissions = SnapshotPermissions(mapOf(playerId to snapshot), clock = clock)
 
-        assertSame(snapshot, permissions.snapshot(playerId))
+        assertEquals(snapshot, permissions.snapshot(playerId))
+    }
+
+    @Test
+    fun storedSnapshotsDoNotReflectCallerCollectionMutations() {
+        val allowPatterns = mutableListOf(allow("chat.send"))
+        val denyPatterns = mutableListOf<PermissionGrant>()
+        val roleKeys = mutableSetOf("member")
+        val roleMetadata = mutableListOf(RoleMetadata(key = "member", name = "Member"))
+        val snapshot =
+            PermissionSnapshot(
+                playerId = playerId,
+                policyVersion = 1,
+                issuedAt = now,
+                refreshAfter = now.plusSeconds(60),
+                expiresAt = now.plusSeconds(300),
+                allowPatterns = allowPatterns,
+                denyPatterns = denyPatterns,
+                roleKeys = roleKeys,
+                roleMetadata = roleMetadata,
+            )
+        val permissions = SnapshotPermissions(mapOf(playerId to snapshot), clock = clock)
+
+        allowPatterns.clear()
+        denyPatterns += deny("chat.send")
+        roleKeys.clear()
+        roleMetadata.clear()
+
+        assertTrue(permissions.hasPermission(playerId, "chat.send"))
+        assertEquals(listOf(allow("chat.send")), permissions.snapshot(playerId)?.allowPatterns)
+        assertEquals(setOf("member"), permissions.snapshot(playerId)?.roleKeys)
+    }
+
+    @Test
+    fun inMemorySnapshotStoreCopiesInputAndSupportsReplacement() {
+        val initialSnapshots = mutableMapOf(playerId to snapshot(listOf(allow("chat.send"))))
+        val snapshots = InMemoryPermissionSnapshots(initialSnapshots)
+        val permissions = SnapshotPermissions(snapshots, clock = clock)
+
+        initialSnapshots.clear()
+
+        assertTrue(permissions.hasPermission(playerId, "chat.send"))
+
+        snapshots.replaceAll(mapOf(playerId to snapshot(listOf(allow("economy.pay")))))
+
+        assertFalse(permissions.hasPermission(playerId, "chat.send"))
+        assertTrue(permissions.hasPermission(playerId, "economy.pay"))
     }
 
     @Test
@@ -119,6 +165,29 @@ class PermissionCheckerTest {
         assertFalse(serverTypePermissions.hasPermission(playerId, "queue.join"))
         assertTrue(serverPermissions.hasPermission(playerId, "queue.join"))
         assertFalse(otherServerPermissions.hasPermission(playerId, "queue.join"))
+    }
+
+    @Test
+    fun publicScopedPermissionCheckUsesProvidedScope() {
+        val permissions: Permissions =
+            permissions(
+                allowPatterns = listOf(allow("queue.join", PermissionScope.serverType("survival")))
+            )
+
+        assertTrue(
+            permissions.hasPermission(
+                playerId,
+                "queue.join",
+                PermissionCheckScope.serverType("survival"),
+            )
+        )
+        assertFalse(
+            permissions.hasPermission(
+                playerId,
+                "queue.join",
+                PermissionCheckScope.serverType("creative"),
+            )
+        )
     }
 
     @Test

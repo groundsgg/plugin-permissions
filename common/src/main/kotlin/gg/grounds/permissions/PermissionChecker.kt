@@ -2,16 +2,20 @@ package gg.grounds.permissions
 
 import java.time.Clock
 import java.time.Instant
+import java.util.Collections
+import java.util.LinkedHashSet
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicReference
 
 interface Permissions {
     fun hasPermission(playerId: UUID, permission: String): Boolean
 
+    fun hasPermission(playerId: UUID, permission: String, scope: PermissionCheckScope): Boolean
+
     fun snapshot(playerId: UUID): PermissionSnapshot?
 }
 
-class PermissionCheckScope
-private constructor(val serverType: String? = null, val server: String? = null) {
+data class PermissionCheckScope(val serverType: String? = null, val server: String? = null) {
     companion object {
         fun global(): PermissionCheckScope = PermissionCheckScope()
 
@@ -25,17 +29,41 @@ private constructor(val serverType: String? = null, val server: String? = null) 
     }
 }
 
+class InMemoryPermissionSnapshots(initialSnapshots: Map<UUID, PermissionSnapshot> = emptyMap()) {
+    private val snapshots = AtomicReference(initialSnapshots.toImmutableSnapshots())
+
+    fun get(playerId: UUID): PermissionSnapshot? = snapshots.get()[playerId]
+
+    fun replaceAll(replacementSnapshots: Map<UUID, PermissionSnapshot>) {
+        snapshots.set(replacementSnapshots.toImmutableSnapshots())
+    }
+}
+
 class SnapshotPermissions(
-    private val snapshots: Map<UUID, PermissionSnapshot>,
+    private val snapshots: InMemoryPermissionSnapshots,
     private val defaultScope: PermissionCheckScope = PermissionCheckScope.global(),
     private val clock: Clock = Clock.systemUTC(),
 ) : Permissions {
+    constructor(
+        snapshots: Map<UUID, PermissionSnapshot>,
+        defaultScope: PermissionCheckScope = PermissionCheckScope.global(),
+        clock: Clock = Clock.systemUTC(),
+    ) : this(InMemoryPermissionSnapshots(snapshots), defaultScope, clock)
+
     override fun hasPermission(playerId: UUID, permission: String): Boolean {
-        val snapshot = snapshots[playerId] ?: return false
-        return hasPermission(snapshot, permission, defaultScope, clock.instant())
+        return hasPermission(playerId, permission, defaultScope)
     }
 
-    override fun snapshot(playerId: UUID): PermissionSnapshot? = snapshots[playerId]
+    override fun hasPermission(
+        playerId: UUID,
+        permission: String,
+        scope: PermissionCheckScope,
+    ): Boolean {
+        val snapshot = snapshots.get(playerId) ?: return false
+        return hasPermission(snapshot, permission, scope, clock.instant())
+    }
+
+    override fun snapshot(playerId: UUID): PermissionSnapshot? = snapshots.get(playerId)
 
     fun hasPermission(
         snapshot: PermissionSnapshot,
@@ -119,3 +147,19 @@ private data class PermissionCandidate(
     val patternSpecificity: Int,
     val effectSpecificity: Int,
 )
+
+private fun Map<UUID, PermissionSnapshot>.toImmutableSnapshots(): Map<UUID, PermissionSnapshot> =
+    Collections.unmodifiableMap(mapValues { (_, snapshot) -> snapshot.toImmutableSnapshot() })
+
+private fun PermissionSnapshot.toImmutableSnapshot(): PermissionSnapshot =
+    copy(
+        allowPatterns = allowPatterns.toImmutableList(),
+        denyPatterns = denyPatterns.toImmutableList(),
+        roleKeys = roleKeys.toImmutableSet(),
+        roleMetadata = roleMetadata.toImmutableList(),
+    )
+
+private fun <T> Collection<T>.toImmutableList(): List<T> = Collections.unmodifiableList(toList())
+
+private fun <T> Collection<T>.toImmutableSet(): Set<T> =
+    Collections.unmodifiableSet(toCollection(LinkedHashSet()))
