@@ -34,6 +34,12 @@ class InMemoryPermissionSnapshots(initialSnapshots: Map<UUID, PermissionSnapshot
 
     fun get(playerId: UUID): PermissionSnapshot? = snapshots.get()[playerId]
 
+    fun put(snapshot: PermissionSnapshot) {
+        snapshots.updateAndGet { existing ->
+            (existing + (snapshot.playerId to snapshot)).toImmutableSnapshots()
+        }
+    }
+
     fun replaceAll(replacementSnapshots: Map<UUID, PermissionSnapshot>) {
         snapshots.set(replacementSnapshots.toImmutableSnapshots())
     }
