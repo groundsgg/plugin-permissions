@@ -1,7 +1,9 @@
 {
-  "release-type": "go",
-  "include-component-in-tag": false,
   "packages": {
-    ".": {}
+    ".": {
+      "release-type": "simple",
+      "package-name": "plugin-permissions",
+      "include-v-in-tag": true
+    }
   }
 }
