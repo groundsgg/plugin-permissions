@@ -29,7 +29,7 @@ class PermissionLoginListenerTest {
                 client = FakeClient(PermissionSnapshotFetchResult.Success(snapshot)),
             )
 
-        val result = listener.loadSnapshot(playerId, "lukas")
+        val result = listener.loadSnapshot(playerId, "Alex")
 
         assertTrue(result.allowed)
         assertEquals(snapshot, result.snapshot)
@@ -51,7 +51,7 @@ class PermissionLoginListenerTest {
                 client = FakeClient(PermissionSnapshotFetchResult.Unavailable("unavailable")),
             )
 
-        val result = listener.loadSnapshot(playerId, "lukas")
+        val result = listener.loadSnapshot(playerId, "Alex")
 
         assertTrue(result.allowed)
         assertEquals(snapshot, result.snapshot)
@@ -64,7 +64,7 @@ class PermissionLoginListenerTest {
         val listener =
             listener(client = FakeClient(PermissionSnapshotFetchResult.Unavailable("unavailable")))
 
-        val result = listener.loadSnapshot(playerId, "lukas")
+        val result = listener.loadSnapshot(playerId, "Alex")
 
         assertFalse(result.allowed)
     }
@@ -80,7 +80,7 @@ class PermissionLoginListenerTest {
                 client = FakeClient(PermissionSnapshotFetchResult.Unavailable("unavailable")),
             )
 
-        val result = listener.loadSnapshot(playerId, "lukas")
+        val result = listener.loadSnapshot(playerId, "Alex")
 
         assertFalse(result.allowed)
     }
@@ -92,7 +92,7 @@ class PermissionLoginListenerTest {
         val context = PermissionSnapshotContext(serverType = "lobby", serverId = "proxy-1")
         val listener = listener(client = client, context = context)
 
-        listener.loadSnapshot(playerId, "lukas")
+        listener.loadSnapshot(playerId, "Alex")
 
         assertSame(context, client.lastContext)
     }

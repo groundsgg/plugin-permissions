@@ -1,0 +1,40 @@
+{
+  "permissions": [
+    {
+      "key": "grounds.permissions.command",
+      "label": "Permissions commands",
+      "description": "Allows access to the permissions command help.",
+      "supportedScopes": ["GLOBAL"]
+    },
+    {
+      "key": "grounds.permissions.command.status",
+      "label": "Permissions status",
+      "description": "Allows viewing the permissions plugin status.",
+      "supportedScopes": ["GLOBAL"]
+    },
+    {
+      "key": "grounds.permissions.command.user.info",
+      "label": "Player permission snapshot info",
+      "description": "Allows viewing a loaded player permission snapshot.",
+      "supportedScopes": ["GLOBAL"]
+    },
+    {
+      "key": "grounds.permissions.command.user.check",
+      "label": "Player permission check",
+      "description": "Allows checking a loaded player's effective permission.",
+      "supportedScopes": ["GLOBAL"]
+    },
+    {
+      "key": "grounds.permissions.command.user.refresh",
+      "label": "Player permission snapshot refresh",
+      "description": "Allows refreshing one online player's permission snapshot.",
+      "supportedScopes": ["GLOBAL"]
+    },
+    {
+      "key": "grounds.permissions.command.refresh",
+      "label": "Permission snapshot refresh",
+      "description": "Allows refreshing one or all online player permission snapshots.",
+      "supportedScopes": ["GLOBAL"]
+    }
+  ]
+}

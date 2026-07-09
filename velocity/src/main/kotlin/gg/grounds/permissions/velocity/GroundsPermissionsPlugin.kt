@@ -1,6 +1,7 @@
 package gg.grounds.permissions.velocity
 
 import com.google.inject.Inject
+import com.velocitypowered.api.command.CommandMeta
 import com.velocitypowered.api.event.Subscribe
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent
@@ -10,6 +11,7 @@ import com.velocitypowered.api.proxy.ProxyServer
 import gg.grounds.BuildInfo
 import gg.grounds.permissions.InMemoryPermissionSnapshots
 import gg.grounds.permissions.PermissionCheckScope
+import gg.grounds.permissions.SnapshotPermissions
 import io.grpc.LoadBalancerRegistry
 import io.grpc.NameResolverRegistry
 import io.grpc.internal.DnsNameResolverProvider
@@ -33,6 +35,8 @@ constructor(
     @param:DataDirectory private val dataDirectory: Path,
 ) {
     private var client: PermissionSnapshotClient? = null
+    private var catalogClient: PermissionCatalogClient? = null
+    private var commandMeta: CommandMeta? = null
 
     init {
         logger.info("Initialized plugin (plugin=plugin-permissions, version={})", BuildInfo.VERSION)
@@ -44,18 +48,72 @@ constructor(
 
         val config = VelocityPermissionsConfig.fromEnvironment(System.getenv())
         val snapshotClient = GrpcPermissionSnapshotClient.create(config.grpcTarget)
+        val manifestClient = GrpcPermissionCatalogClient.create(config.grpcTarget)
         client = snapshotClient
+        catalogClient = manifestClient
 
-        proxy.eventManager.register(
-            this,
+        val snapshots = InMemoryPermissionSnapshots()
+        val listener =
             PermissionLoginListener(
                 logger = logger,
-                snapshots = InMemoryPermissionSnapshots(),
+                snapshots = snapshots,
                 cache = SnapshotDiskCache(logger, dataDirectory.resolve("snapshots")),
                 client = snapshotClient,
                 context = config.context,
-            ),
-        )
+            )
+        proxy.eventManager.register(this, listener)
+
+        val permissions =
+            SnapshotPermissions(snapshots, defaultScope = config.context.toCheckScope())
+        val manifest = PermissionManifest.loadResource()
+        val commandPermissions = PermissionCommandPermissions.fromManifest(manifest)
+        val router =
+            PermissionCommandRouter(
+                service =
+                    PermissionCommandService(
+                        snapshots = snapshots,
+                        permissions = permissions,
+                        refreshSnapshot = listener::loadSnapshot,
+                        status =
+                            PermissionCommandStatus(
+                                version = BuildInfo.VERSION,
+                                grpcTarget = config.grpcTarget,
+                                context = config.context,
+                            ),
+                    ),
+                findOnlinePlayer = { identifier ->
+                    VelocityPermissionsCommand.findOnlinePlayer(proxy, identifier)
+                },
+                onlinePlayers = { VelocityPermissionsCommand.onlinePlayers(proxy) },
+                defaultScope =
+                    PermissionCheckScopeArgument(
+                        serverType = config.context.serverType,
+                        server = config.context.serverId,
+                    ),
+            )
+        val command =
+            VelocityPermissionsCommand(
+                plugin = this,
+                proxy = proxy,
+                router = router,
+                commandPermissions = commandPermissions,
+                isAuthorized = { source, permission ->
+                    VelocityPermissionsCommand.isPlayerAuthorized(source, permissions, permission)
+                },
+            )
+        val commandMeta =
+            proxy.commandManager.metaBuilder("permissions").aliases("perm").plugin(this).build()
+        proxy.commandManager.register(commandMeta, command)
+        this.commandMeta = commandMeta
+
+        logger.info("Registered permissions commands successfully (root=permissions, alias=perm)")
+
+        proxy.scheduler
+            .buildTask(
+                this,
+                Runnable { registerPermissionManifest(manifestClient, manifest, config) },
+            )
+            .schedule()
 
         logger.info(
             "Configured permissions snapshot client (target={}, serverType={}, serverId={})",
@@ -67,13 +125,45 @@ constructor(
 
     @Subscribe
     fun onShutdown(event: ProxyShutdownEvent) {
+        commandMeta?.let(proxy.commandManager::unregister)
+        commandMeta = null
         client?.close()
         client = null
+        catalogClient?.close()
+        catalogClient = null
     }
 
     private fun registerProviders() {
         NameResolverRegistry.getDefaultRegistry().register(DnsNameResolverProvider())
         LoadBalancerRegistry.getDefaultRegistry().register(PickFirstLoadBalancerProvider())
+    }
+
+    private fun registerPermissionManifest(
+        manifestClient: PermissionCatalogClient,
+        manifest: PermissionManifest,
+        config: VelocityPermissionsConfig,
+    ) {
+        when (
+            val result =
+                manifestClient.register(
+                    manifest = manifest,
+                    source = "plugin-permissions",
+                    sourceVersion = BuildInfo.VERSION,
+                    context = config.context,
+                )
+        ) {
+            PermissionManifestRegistrationResult.Accepted ->
+                logger.info(
+                    "Registered permission catalog manifest successfully (source=plugin-permissions, version={}, permissionCount={})",
+                    BuildInfo.VERSION,
+                    manifest.permissions.size,
+                )
+            is PermissionManifestRegistrationResult.Unavailable ->
+                logger.warn(
+                    "Failed to register permission catalog manifest (source=plugin-permissions, reason={})",
+                    result.reason,
+                )
+        }
     }
 }
 

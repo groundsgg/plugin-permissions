@@ -24,7 +24,7 @@ class MinestomPermissionSnapshotLoaderTest {
                 client = FakeClient(PermissionSnapshotFetchResult.Success(snapshot)),
             )
 
-        val result = loader.loadSnapshot(playerId, "lukas")
+        val result = loader.loadSnapshot(playerId, "Alex")
 
         assertTrue(result.allowed)
         assertEquals(snapshot, result.snapshot)
@@ -42,7 +42,7 @@ class MinestomPermissionSnapshotLoaderTest {
                 client = FakeClient(PermissionSnapshotFetchResult.Unavailable("unavailable")),
             )
 
-        val result = loader.loadSnapshot(playerId, "lukas")
+        val result = loader.loadSnapshot(playerId, "Alex")
 
         assertTrue(result.allowed)
         assertEquals(snapshot, result.snapshot)
@@ -54,7 +54,7 @@ class MinestomPermissionSnapshotLoaderTest {
         val loader =
             loader(client = FakeClient(PermissionSnapshotFetchResult.Unavailable("unavailable")))
 
-        val result = loader.loadSnapshot(playerId, "lukas")
+        val result = loader.loadSnapshot(playerId, "Alex")
 
         assertFalse(result.allowed)
     }
@@ -70,7 +70,7 @@ class MinestomPermissionSnapshotLoaderTest {
                 client = FakeClient(PermissionSnapshotFetchResult.Unavailable("unavailable")),
             )
 
-        val result = loader.loadSnapshot(playerId, "lukas")
+        val result = loader.loadSnapshot(playerId, "Alex")
 
         assertFalse(result.allowed)
     }
@@ -82,7 +82,7 @@ class MinestomPermissionSnapshotLoaderTest {
         val context = PermissionSnapshotContext(serverType = "arena", serverId = "arena-1")
         val loader = loader(client = client, context = context)
 
-        loader.loadSnapshot(playerId, "lukas")
+        loader.loadSnapshot(playerId, "Alex")
 
         assertSame(context, client.lastContext)
     }
