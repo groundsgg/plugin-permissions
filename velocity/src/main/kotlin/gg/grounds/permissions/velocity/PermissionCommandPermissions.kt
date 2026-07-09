@@ -1,5 +1,8 @@
 package gg.grounds.permissions.velocity
 
+import gg.grounds.permissions.catalog.PermissionManifest
+import gg.grounds.permissions.catalog.PermissionManifestEntry
+
 class PermissionCommandPermissions private constructor(private val nodes: Map<String, String>) {
     fun forArguments(arguments: Array<String>): String =
         when {

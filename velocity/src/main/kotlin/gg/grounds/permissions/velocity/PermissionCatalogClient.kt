@@ -4,6 +4,9 @@ import gg.grounds.grpc.permissions.PermissionCatalogServiceGrpc
 import gg.grounds.grpc.permissions.PermissionManifestEntry as GrpcPermissionManifestEntry
 import gg.grounds.grpc.permissions.PermissionScopeKind
 import gg.grounds.grpc.permissions.RegisterPermissionManifestRequest
+import gg.grounds.permissions.catalog.PermissionManifest
+import gg.grounds.permissions.catalog.PermissionManifestEntry
+import gg.grounds.permissions.catalog.PermissionManifestScope
 import io.grpc.ManagedChannel
 import io.grpc.ManagedChannelBuilder
 import io.grpc.Status
@@ -19,7 +22,6 @@ sealed interface PermissionManifestRegistrationResult {
 interface PermissionCatalogClient : AutoCloseable {
     fun register(
         manifest: PermissionManifest,
-        source: String,
         sourceVersion: String,
         context: PermissionSnapshotContext,
     ): PermissionManifestRegistrationResult
@@ -33,7 +35,6 @@ class GrpcPermissionCatalogClient private constructor(private val channel: Manag
 
     override fun register(
         manifest: PermissionManifest,
-        source: String,
         sourceVersion: String,
         context: PermissionSnapshotContext,
     ): PermissionManifestRegistrationResult =
@@ -43,7 +44,7 @@ class GrpcPermissionCatalogClient private constructor(private val channel: Manag
                     .withDeadlineAfter(DEFAULT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
                     .registerPermissionManifest(
                         RegisterPermissionManifestRequest.newBuilder()
-                            .setSource(source)
+                            .setSource(manifest.source)
                             .setSourceVersion(sourceVersion)
                             .setServerType(context.serverType.orEmpty())
                             .setServerId(context.serverId.orEmpty())
