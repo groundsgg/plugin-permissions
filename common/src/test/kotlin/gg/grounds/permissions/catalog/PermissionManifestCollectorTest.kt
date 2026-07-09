@@ -81,6 +81,87 @@ class PermissionManifestCollectorTest {
     }
 
     @Test
+    fun `reports manifests with missing or blank sources`() {
+        val collection =
+            PermissionManifestCollector()
+                .collect(
+                    listOf(
+                        ManifestOrigin(
+                            "missing-source",
+                            "1.0.0",
+                            ResourceClassLoader(
+                                """
+                                {
+                                  "permissions": [
+                                    { "key": "grounds.command.missing-source", "label": "Missing source", "description": "Requires a source.", "supportedScopes": ["GLOBAL"] }
+                                  ]
+                                }
+                                """
+                                    .trimIndent()
+                            ),
+                        ),
+                        ManifestOrigin(
+                            "blank-source",
+                            "1.0.0",
+                            ResourceClassLoader(
+                                """
+                                {
+                                  "source": "   ",
+                                  "permissions": [
+                                    { "key": "grounds.command.blank-source", "label": "Blank source", "description": "Requires a source.", "supportedScopes": ["GLOBAL"] }
+                                  ]
+                                }
+                                """
+                                    .trimIndent()
+                            ),
+                        ),
+                    )
+                )
+
+        assertTrue(collection.manifests.isEmpty())
+        assertEquals(
+            listOf("missing-source", "blank-source"),
+            collection.failures.map { it.origin.id },
+        )
+    }
+
+    @Test
+    fun `reports manifests with blank required permission entry fields`() {
+        val collection =
+            PermissionManifestCollector()
+                .collect(
+                    listOf("key", "label", "description").map { field ->
+                        ManifestOrigin(
+                            "blank-$field",
+                            "1.0.0",
+                            ResourceClassLoader(
+                                """
+                                {
+                                  "source": "blank-$field",
+                                  "permissions": [
+                                    {
+                                      "key": "${if (field == "key") " " else "grounds.command.blank-$field"}",
+                                      "label": "${if (field == "label") " " else "Use command"}",
+                                      "description": "${if (field == "description") " " else "Allows using the command."}",
+                                      "supportedScopes": ["GLOBAL"]
+                                    }
+                                  ]
+                                }
+                                """
+                                    .trimIndent()
+                            ),
+                        )
+                    }
+                )
+
+        assertTrue(collection.manifests.isEmpty())
+        assertEquals(
+            listOf("blank-key", "blank-label", "blank-description"),
+            collection.failures.map { it.origin.id },
+        )
+    }
+
+    @Test
     fun `rejects unsupported scopes`() {
         assertThrows(IllegalArgumentException::class.java) {
             PermissionManifest.load(

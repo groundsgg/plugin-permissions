@@ -19,7 +19,7 @@ class PermissionManifestDiscoveryTest {
         val containers =
             listOf(
                 pluginContainer("first-plugin", "1.0.0", first),
-                pluginContainer("without-manifest", "1.0.0", Any()),
+                pluginContainer("without-instance", "1.0.0", null),
                 pluginContainer("second-plugin", "2.0.0", second),
             )
         val origins = discoverPermissionManifestOrigins(containers)
@@ -38,7 +38,7 @@ class PermissionManifestDiscoveryTest {
         assertEquals(listOf("first-plugin", "second-plugin"), client.registeredSources)
     }
 
-    private fun pluginContainer(id: String, version: String, instance: Any): PluginContainer {
+    private fun pluginContainer(id: String, version: String, instance: Any?): PluginContainer {
         val description =
             Proxy.newProxyInstance(javaClass.classLoader, arrayOf(PluginDescription::class.java)) {
                 _,
@@ -56,7 +56,7 @@ class PermissionManifestDiscoveryTest {
         ) { _, method, _ ->
             when (method.name) {
                 "getDescription" -> description
-                "getInstance" -> Optional.of(instance)
+                "getInstance" -> Optional.ofNullable(instance)
                 else -> error("Unexpected plugin container method: ${method.name}")
             }
         } as PluginContainer
