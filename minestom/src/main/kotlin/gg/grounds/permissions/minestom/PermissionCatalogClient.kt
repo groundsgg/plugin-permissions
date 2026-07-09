@@ -1,4 +1,4 @@
-package gg.grounds.permissions.velocity
+package gg.grounds.permissions.minestom
 
 import gg.grounds.grpc.permissions.PermissionCatalogServiceGrpc
 import gg.grounds.grpc.permissions.PermissionManifestEntry as GrpcPermissionManifestEntry
@@ -60,10 +60,12 @@ class GrpcPermissionCatalogClient private constructor(private val channel: Manag
                     reply.message.ifBlank { "rejected" }
                 )
             }
-        } catch (e: StatusRuntimeException) {
-            PermissionManifestRegistrationResult.Unavailable(e.status.toSafeReason())
-        } catch (e: RuntimeException) {
-            PermissionManifestRegistrationResult.Unavailable(e.message ?: e::class.java.name)
+        } catch (exception: StatusRuntimeException) {
+            PermissionManifestRegistrationResult.Unavailable(exception.status.toSafeReason())
+        } catch (exception: RuntimeException) {
+            PermissionManifestRegistrationResult.Unavailable(
+                exception.message ?: exception::class.java.name
+            )
         }
 
     override fun close() {
@@ -73,7 +75,7 @@ class GrpcPermissionCatalogClient private constructor(private val channel: Manag
                 channel.shutdownNow()
                 channel.awaitTermination(3, TimeUnit.SECONDS)
             }
-        } catch (e: InterruptedException) {
+        } catch (exception: InterruptedException) {
             Thread.currentThread().interrupt()
             channel.shutdownNow()
         }

@@ -12,6 +12,8 @@ import gg.grounds.BuildInfo
 import gg.grounds.permissions.InMemoryPermissionSnapshots
 import gg.grounds.permissions.PermissionCheckScope
 import gg.grounds.permissions.SnapshotPermissions
+import gg.grounds.permissions.catalog.PermissionManifest
+import gg.grounds.permissions.catalog.PermissionManifestCollector
 import io.grpc.LoadBalancerRegistry
 import io.grpc.NameResolverRegistry
 import io.grpc.internal.DnsNameResolverProvider
@@ -65,54 +67,57 @@ constructor(
 
         val permissions =
             SnapshotPermissions(snapshots, defaultScope = config.context.toCheckScope())
-        val manifest = PermissionManifest.loadResource()
-        val commandPermissions = PermissionCommandPermissions.fromManifest(manifest)
-        val router =
-            PermissionCommandRouter(
-                service =
-                    PermissionCommandService(
-                        snapshots = snapshots,
-                        permissions = permissions,
-                        refreshSnapshot = listener::loadSnapshot,
-                        status =
-                            PermissionCommandStatus(
-                                version = BuildInfo.VERSION,
-                                grpcTarget = config.grpcTarget,
-                                context = config.context,
-                            ),
-                    ),
-                findOnlinePlayer = { identifier ->
-                    VelocityPermissionsCommand.findOnlinePlayer(proxy, identifier)
-                },
-                onlinePlayers = { VelocityPermissionsCommand.onlinePlayers(proxy) },
-                defaultScope =
-                    PermissionCheckScopeArgument(
-                        serverType = config.context.serverType,
-                        server = config.context.serverId,
-                    ),
-            )
-        val command =
-            VelocityPermissionsCommand(
-                plugin = this,
-                proxy = proxy,
-                router = router,
-                commandPermissions = commandPermissions,
-                isAuthorized = { source, permission ->
-                    VelocityPermissionsCommand.isPlayerAuthorized(source, permissions, permission)
-                },
-            )
-        val commandMeta =
-            proxy.commandManager.metaBuilder("permissions").aliases("perm").plugin(this).build()
-        proxy.commandManager.register(commandMeta, command)
-        this.commandMeta = commandMeta
+        loadCommandPermissions()?.let { commandPermissions ->
+            val router =
+                PermissionCommandRouter(
+                    service =
+                        PermissionCommandService(
+                            snapshots = snapshots,
+                            permissions = permissions,
+                            refreshSnapshot = listener::loadSnapshot,
+                            status =
+                                PermissionCommandStatus(
+                                    version = BuildInfo.VERSION,
+                                    grpcTarget = config.grpcTarget,
+                                    context = config.context,
+                                ),
+                        ),
+                    findOnlinePlayer = { identifier ->
+                        VelocityPermissionsCommand.findOnlinePlayer(proxy, identifier)
+                    },
+                    onlinePlayers = { VelocityPermissionsCommand.onlinePlayers(proxy) },
+                    defaultScope =
+                        PermissionCheckScopeArgument(
+                            serverType = config.context.serverType,
+                            server = config.context.serverId,
+                        ),
+                )
+            val command =
+                VelocityPermissionsCommand(
+                    plugin = this,
+                    proxy = proxy,
+                    router = router,
+                    commandPermissions = commandPermissions,
+                    isAuthorized = { source, permission ->
+                        VelocityPermissionsCommand.isPlayerAuthorized(
+                            source,
+                            permissions,
+                            permission,
+                        )
+                    },
+                )
+            val commandMeta =
+                proxy.commandManager.metaBuilder("permissions").aliases("perm").plugin(this).build()
+            proxy.commandManager.register(commandMeta, command)
+            this.commandMeta = commandMeta
 
-        logger.info("Registered permissions commands successfully (root=permissions, alias=perm)")
+            logger.info(
+                "Registered permissions commands successfully (root=permissions, alias=perm)"
+            )
+        }
 
         proxy.scheduler
-            .buildTask(
-                this,
-                Runnable { registerPermissionManifest(manifestClient, manifest, config) },
-            )
+            .buildTask(this, Runnable { registerActivePermissionManifests(manifestClient, config) })
             .schedule()
 
         logger.info(
@@ -138,31 +143,54 @@ constructor(
         LoadBalancerRegistry.getDefaultRegistry().register(PickFirstLoadBalancerProvider())
     }
 
-    private fun registerPermissionManifest(
+    private fun loadCommandPermissions(): PermissionCommandPermissions? =
+        try {
+            PermissionCommandPermissions.fromManifest(
+                PermissionManifest.loadRequiredResource(javaClass.classLoader)
+            )
+        } catch (exception: IllegalArgumentException) {
+            logger.warn(
+                "Skipped permissions command registration (originId=plugin-permissions, reason={})",
+                exception.message ?: exception::class.java.simpleName,
+            )
+            null
+        }
+
+    private fun registerActivePermissionManifests(
         manifestClient: PermissionCatalogClient,
-        manifest: PermissionManifest,
         config: VelocityPermissionsConfig,
     ) {
-        when (
-            val result =
-                manifestClient.register(
-                    manifest = manifest,
-                    source = "plugin-permissions",
-                    sourceVersion = BuildInfo.VERSION,
-                    context = config.context,
-                )
-        ) {
-            PermissionManifestRegistrationResult.Accepted ->
-                logger.info(
-                    "Registered permission catalog manifest successfully (source=plugin-permissions, version={}, permissionCount={})",
-                    BuildInfo.VERSION,
-                    manifest.permissions.size,
-                )
-            is PermissionManifestRegistrationResult.Unavailable ->
-                logger.warn(
-                    "Failed to register permission catalog manifest (source=plugin-permissions, reason={})",
-                    result.reason,
-                )
+        val collection =
+            PermissionManifestCollector()
+                .collect(discoverPermissionManifestOrigins(proxy.pluginManager.plugins))
+        collection.failures.forEach { failure ->
+            logger.warn(
+                "Skipped malformed permission manifest (originId={}, originVersion={}, reason={})",
+                failure.origin.id,
+                failure.origin.version,
+                failure.reason,
+            )
+        }
+        val registration =
+            PermissionManifestRegistrar(manifestClient, config.context)
+                .register(collection.manifests)
+        registration.registered.forEach { collected ->
+            logger.info(
+                "Registered permission catalog manifest successfully (originId={}, source={}, version={}, permissionCount={})",
+                collected.origin.id,
+                collected.manifest.source,
+                collected.origin.version,
+                collected.manifest.permissions.size,
+            )
+        }
+        registration.failures.forEach { failure ->
+            logger.warn(
+                "Failed to register permission catalog manifest (originId={}, source={}, attempts={}, reason={})",
+                failure.collected.origin.id,
+                failure.collected.manifest.source,
+                failure.attempts,
+                failure.reason,
+            )
         }
     }
 }

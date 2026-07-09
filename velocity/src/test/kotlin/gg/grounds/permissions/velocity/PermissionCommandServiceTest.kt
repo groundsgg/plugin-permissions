@@ -8,6 +8,7 @@ import gg.grounds.permissions.PermissionScope
 import gg.grounds.permissions.PermissionSnapshot
 import gg.grounds.permissions.RoleMetadata
 import gg.grounds.permissions.SnapshotPermissions
+import gg.grounds.permissions.catalog.PermissionManifest
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
@@ -229,6 +230,7 @@ class PermissionCommandServiceTest {
             PermissionManifest.load(
                 """
                 {
+                  "source": "plugin-permissions",
                   "permissions": [
                     { "key": "grounds.permissions.command", "label": "Permissions commands", "description": "Allows command help.", "supportedScopes": ["GLOBAL"] },
                     { "key": "grounds.permissions.command.status", "label": "Permissions status", "description": "Allows status.", "supportedScopes": ["GLOBAL"] },
@@ -262,7 +264,11 @@ class PermissionCommandServiceTest {
     @Test
     fun `packaged command permissions are complete`() {
         val permissions =
-            PermissionCommandPermissions.fromManifest(PermissionManifest.loadResource())
+            PermissionCommandPermissions.fromManifest(
+                PermissionManifest.loadRequiredResource(
+                    GroundsPermissionsPlugin::class.java.classLoader
+                )
+            )
 
         assertEquals("grounds.permissions.command", permissions.forArguments(emptyArray()))
         assertEquals(

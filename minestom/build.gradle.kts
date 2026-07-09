@@ -13,7 +13,7 @@ buildConfig {
 dependencies {
     implementation(platform("gg.grounds:grounds-dependencies:0.1.0"))
 
-    api("gg.grounds:grounds-minestom-runtime-runtime-api:0.1.0")
+    api("gg.grounds:grounds-minestom-runtime-runtime-api:0.3.0")
     implementation(project(":common"))
     implementation("io.grpc:grpc-netty-shaded:1.79.0")
     implementation("io.grpc:grpc-stub")
