@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/groundsgg/plugin-permissions/compare/v0.2.0...v0.3.0) (2026-07-09)
+
+
+### Features
+
+* add permission query commands ([#4](https://github.com/groundsgg/plugin-permissions/issues/4)) ([a461a71](https://github.com/groundsgg/plugin-permissions/commit/a461a7119a35c027aeffa639d8a73c90981b4727))
+* collect permission manifests ([#6](https://github.com/groundsgg/plugin-permissions/issues/6)) ([c78162e](https://github.com/groundsgg/plugin-permissions/commit/c78162ecb3c9c8594d376c76ff12205ae0e978cf))
+
 ## [0.2.0](https://github.com/groundsgg/plugin-permissions/compare/v0.1.0...v0.2.0) (2026-07-05)
 
 
