@@ -69,7 +69,7 @@ class PermissionLoginListener(
         }
     }
 
-    private fun activateSnapshot(snapshot: PermissionSnapshot) {
+    internal fun activateSnapshot(snapshot: PermissionSnapshot) {
         snapshots.put(snapshot)
         cache.write(snapshot)
     }
