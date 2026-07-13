@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/groundsgg/plugin-permissions/compare/v0.3.0...v0.4.0) (2026-07-13)
+
+
+### Bug Fixes
+
+* publish the permission snapshot refresh sweep ([#8](https://github.com/groundsgg/plugin-permissions/issues/8)) ([55ed2bc](https://github.com/groundsgg/plugin-permissions/commit/55ed2bc52423c3640e54c4f0c4dbb3bcd2fa47d5))
+
 ## [0.3.0](https://github.com/groundsgg/plugin-permissions/compare/v0.2.0...v0.3.0) (2026-07-09)
 
 
