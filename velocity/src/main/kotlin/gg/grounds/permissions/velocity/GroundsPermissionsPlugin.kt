@@ -8,9 +8,11 @@ import com.velocitypowered.api.event.proxy.ProxyShutdownEvent
 import com.velocitypowered.api.plugin.Plugin
 import com.velocitypowered.api.plugin.annotation.DataDirectory
 import com.velocitypowered.api.proxy.ProxyServer
+import com.velocitypowered.api.scheduler.ScheduledTask
 import gg.grounds.BuildInfo
 import gg.grounds.permissions.InMemoryPermissionSnapshots
 import gg.grounds.permissions.PermissionCheckScope
+import gg.grounds.permissions.PermissionSnapshotRefreshSweep
 import gg.grounds.permissions.SnapshotPermissions
 import gg.grounds.permissions.catalog.PermissionManifest
 import gg.grounds.permissions.catalog.PermissionManifestCollector
@@ -19,6 +21,7 @@ import io.grpc.NameResolverRegistry
 import io.grpc.internal.DnsNameResolverProvider
 import io.grpc.internal.PickFirstLoadBalancerProvider
 import java.nio.file.Path
+import java.util.concurrent.TimeUnit
 import org.slf4j.Logger
 
 @Plugin(
@@ -39,6 +42,7 @@ constructor(
     private var client: PermissionSnapshotClient? = null
     private var catalogClient: PermissionCatalogClient? = null
     private var commandMeta: CommandMeta? = null
+    private var refreshTask: ScheduledTask? = null
 
     init {
         logger.info("Initialized plugin (plugin=plugin-permissions, version={})", BuildInfo.VERSION)
@@ -64,6 +68,35 @@ constructor(
                 context = config.context,
             )
         proxy.eventManager.register(this, listener)
+
+        val refreshSweep =
+            PermissionSnapshotRefreshSweep(
+                snapshots = snapshots,
+                onlinePlayerIds = { proxy.allPlayers.map { it.uniqueId }.toSet() },
+                fetchSnapshot = { playerId ->
+                    when (val fetch = snapshotClient.fetchSnapshot(playerId, config.context)) {
+                        is PermissionSnapshotFetchResult.Success -> {
+                            listener.activateSnapshot(fetch.snapshot)
+                            fetch.snapshot
+                        }
+                        is PermissionSnapshotFetchResult.Unavailable -> null
+                    }
+                },
+            )
+        refreshTask =
+            proxy.scheduler
+                .buildTask(
+                    this,
+                    Runnable {
+                        try {
+                            refreshSweep.run()
+                        } catch (exception: RuntimeException) {
+                            logger.warn("Permission snapshot refresh sweep failed", exception)
+                        }
+                    },
+                )
+                .repeat(config.refreshIntervalSeconds, TimeUnit.SECONDS)
+                .schedule()
 
         val permissions =
             SnapshotPermissions(snapshots, defaultScope = config.context.toCheckScope())
@@ -132,6 +165,8 @@ constructor(
     fun onShutdown(event: ProxyShutdownEvent) {
         commandMeta?.let(proxy.commandManager::unregister)
         commandMeta = null
+        refreshTask?.cancel()
+        refreshTask = null
         client?.close()
         client = null
         catalogClient?.close()
@@ -198,6 +233,7 @@ constructor(
 data class VelocityPermissionsConfig(
     val grpcTarget: String,
     val context: PermissionSnapshotContext,
+    val refreshIntervalSeconds: Long,
 ) {
     companion object {
         fun fromEnvironment(environment: Map<String, String>): VelocityPermissionsConfig {
@@ -215,8 +251,14 @@ data class VelocityPermissionsConfig(
                         serverId =
                             environment["GROUNDS_PERMISSION_SERVER_ID"]?.takeIf { it.isNotBlank() },
                     ),
+                refreshIntervalSeconds =
+                    environment["PERMISSIONS_REFRESH_INTERVAL_SECONDS"]
+                        ?.takeIf { it.isNotBlank() }
+                        ?.toLong() ?: DEFAULT_REFRESH_INTERVAL_SECONDS,
             )
         }
+
+        private const val DEFAULT_REFRESH_INTERVAL_SECONDS = 60L
     }
 }
 

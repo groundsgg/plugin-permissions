@@ -34,6 +34,8 @@ class InMemoryPermissionSnapshots(initialSnapshots: Map<UUID, PermissionSnapshot
 
     fun get(playerId: UUID): PermissionSnapshot? = snapshots.get()[playerId]
 
+    fun all(): Map<UUID, PermissionSnapshot> = snapshots.get()
+
     fun put(snapshot: PermissionSnapshot) {
         snapshots.updateAndGet { existing ->
             (existing + (snapshot.playerId to snapshot)).toImmutableSnapshots()
@@ -42,6 +44,23 @@ class InMemoryPermissionSnapshots(initialSnapshots: Map<UUID, PermissionSnapshot
 
     fun replaceAll(replacementSnapshots: Map<UUID, PermissionSnapshot>) {
         snapshots.set(replacementSnapshots.toImmutableSnapshots())
+    }
+
+    /**
+     * Applies [refreshed] and drops every entry [isStale] accepts, atomically against the live map.
+     *
+     * A blind [replaceAll] would discard snapshots that a concurrent login wrote while the caller
+     * was computing its replacement, leaving that player with no snapshot at all.
+     */
+    fun merge(
+        refreshed: Map<UUID, PermissionSnapshot>,
+        isStale: (UUID, PermissionSnapshot) -> Boolean,
+    ) {
+        snapshots.updateAndGet { existing ->
+            (existing + refreshed)
+                .filterNot { (id, snapshot) -> isStale(id, snapshot) }
+                .toImmutableSnapshots()
+        }
     }
 }
 

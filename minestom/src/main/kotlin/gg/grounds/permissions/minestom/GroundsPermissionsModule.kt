@@ -3,6 +3,7 @@ package gg.grounds.permissions.minestom
 import gg.grounds.modules.register
 import gg.grounds.permissions.InMemoryPermissionSnapshots
 import gg.grounds.permissions.PermissionCheckScope
+import gg.grounds.permissions.PermissionSnapshotRefreshSweep
 import gg.grounds.permissions.Permissions
 import gg.grounds.permissions.SnapshotPermissions
 import gg.grounds.permissions.catalog.CollectedPermissionManifest
@@ -12,6 +13,8 @@ import java.time.Clock
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.RejectedExecutionException
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.TimeUnit
 import net.minestom.server.MinecraftServer
 import net.minestom.server.event.Event
 import net.minestom.server.event.EventNode
@@ -24,6 +27,7 @@ class GroundsPermissionsModule(private val clock: Clock = Clock.systemUTC()) : G
     private var client: PermissionSnapshotClient? = null
     private var catalogClient: PermissionCatalogClient? = null
     private var catalogExecutor: ExecutorService? = null
+    private var refreshExecutor: ScheduledExecutorService? = null
     private var eventNode: EventNode<Event>? = null
 
     override val id: String = MODULE_ID
@@ -56,6 +60,36 @@ class GroundsPermissionsModule(private val clock: Clock = Clock.systemUTC()) : G
                 context = config.context,
                 clock = clock,
             )
+        val refreshSweep =
+            PermissionSnapshotRefreshSweep(
+                snapshots = snapshots,
+                onlinePlayerIds = {
+                    MinecraftServer.getConnectionManager().onlinePlayers.map { it.uuid }.toSet()
+                },
+                fetchSnapshot = { playerId ->
+                    when (val fetch = snapshotClient.fetchSnapshot(playerId, config.context)) {
+                        is PermissionSnapshotFetchResult.Success -> fetch.snapshot
+                        is PermissionSnapshotFetchResult.Unavailable -> null
+                    }
+                },
+                clock = clock,
+            )
+        val refreshExecutor =
+            Executors.newSingleThreadScheduledExecutor { runnable ->
+                Thread(runnable, "grounds-permissions-refresh").apply { isDaemon = true }
+            }
+        refreshExecutor.scheduleAtFixedRate(
+            {
+                try {
+                    refreshSweep.run()
+                } catch (exception: RuntimeException) {
+                    logger.warn("Permission snapshot refresh sweep failed", exception)
+                }
+            },
+            config.refreshIntervalSeconds,
+            config.refreshIntervalSeconds,
+            TimeUnit.SECONDS,
+        )
 
         ctx.services.register<Permissions>(permissions)
 
@@ -66,6 +100,7 @@ class GroundsPermissionsModule(private val clock: Clock = Clock.systemUTC()) : G
         client = snapshotClient
         catalogClient = manifestClient
         catalogExecutor = manifestExecutor
+        this.refreshExecutor = refreshExecutor
 
         ctx.onShutdown { stop() }
 
@@ -89,6 +124,8 @@ class GroundsPermissionsModule(private val clock: Clock = Clock.systemUTC()) : G
         eventNode = null
         catalogExecutor?.shutdownNow()
         catalogExecutor = null
+        refreshExecutor?.shutdownNow()
+        refreshExecutor = null
         client?.close()
         client = null
         catalogClient?.close()
@@ -152,6 +189,7 @@ class GroundsPermissionsModule(private val clock: Clock = Clock.systemUTC()) : G
 data class MinestomPermissionsConfig(
     val grpcTarget: String,
     val context: PermissionSnapshotContext,
+    val refreshIntervalSeconds: Long,
 ) {
     companion object {
         fun fromEnvironment(
@@ -172,8 +210,14 @@ data class MinestomPermissionsConfig(
                         serverId =
                             environment["GROUNDS_PERMISSION_SERVER_ID"]?.takeIf { it.isNotBlank() },
                     ),
+                refreshIntervalSeconds =
+                    environment["PERMISSIONS_REFRESH_INTERVAL_SECONDS"]
+                        ?.takeIf { it.isNotBlank() }
+                        ?.toLong() ?: DEFAULT_REFRESH_INTERVAL_SECONDS,
             )
         }
+
+        private const val DEFAULT_REFRESH_INTERVAL_SECONDS = 60L
     }
 }
 
