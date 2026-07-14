@@ -2,6 +2,8 @@ package gg.grounds.permissions.velocity
 
 import gg.grounds.permissions.PermissionEffect
 import gg.grounds.permissions.PermissionGrant
+import gg.grounds.permissions.PermissionGrantOrigin
+import gg.grounds.permissions.PermissionGrantOriginKind
 import gg.grounds.permissions.PermissionGrantSource
 import gg.grounds.permissions.PermissionScope
 import gg.grounds.permissions.PermissionSnapshot
@@ -84,6 +86,13 @@ class SnapshotDiskCacheTest {
                         pattern = "grounds.chat",
                         scope = PermissionScope.global(),
                         source = PermissionGrantSource.ROLE,
+                        origin =
+                            PermissionGrantOrigin(
+                                kind = PermissionGrantOriginKind.GROUP_MAPPING,
+                                roleKey = "default",
+                                mappingId = "mapping-1",
+                                inheritedPath = listOf("member", "default"),
+                            ),
                     )
                 ),
             denyPatterns = emptyList(),

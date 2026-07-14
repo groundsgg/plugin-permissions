@@ -4,6 +4,7 @@ import com.google.protobuf.Timestamp
 import gg.grounds.grpc.permissions.GetPlayerSnapshotRequest
 import gg.grounds.grpc.permissions.PermissionEffect as GrpcPermissionEffect
 import gg.grounds.grpc.permissions.PermissionGrant as GrpcPermissionGrant
+import gg.grounds.grpc.permissions.PermissionGrantOriginKind as GrpcPermissionGrantOriginKind
 import gg.grounds.grpc.permissions.PermissionGrantSource as GrpcPermissionGrantSource
 import gg.grounds.grpc.permissions.PermissionScope as GrpcPermissionScope
 import gg.grounds.grpc.permissions.PermissionScopeKind as GrpcPermissionScopeKind
@@ -12,6 +13,8 @@ import gg.grounds.grpc.permissions.PlayerPermissionSnapshot
 import gg.grounds.grpc.permissions.RoleMetadata as GrpcRoleMetadata
 import gg.grounds.permissions.PermissionEffect
 import gg.grounds.permissions.PermissionGrant
+import gg.grounds.permissions.PermissionGrantOrigin
+import gg.grounds.permissions.PermissionGrantOriginKind
 import gg.grounds.permissions.PermissionGrantSource
 import gg.grounds.permissions.PermissionScope
 import gg.grounds.permissions.PermissionSnapshot
@@ -123,7 +126,32 @@ private fun GrpcPermissionGrant.toDomain(): PermissionGrant =
                 else -> PermissionGrantSource.ROLE
             },
         expiresAt = if (hasExpiresAt()) expiresAt.toInstant() else null,
+        origin = toDomainOrigin(),
     )
+
+private fun GrpcPermissionGrant.toDomainOrigin(): PermissionGrantOrigin? {
+    if (!hasOrigin()) return null
+
+    val kind =
+        when (origin.kind) {
+            GrpcPermissionGrantOriginKind.PERMISSION_GRANT_ORIGIN_KIND_DEFAULT_ROLE ->
+                PermissionGrantOriginKind.DEFAULT_ROLE
+            GrpcPermissionGrantOriginKind.PERMISSION_GRANT_ORIGIN_KIND_DIRECT_ROLE ->
+                PermissionGrantOriginKind.DIRECT_ROLE
+            GrpcPermissionGrantOriginKind.PERMISSION_GRANT_ORIGIN_KIND_GROUP_MAPPING ->
+                PermissionGrantOriginKind.GROUP_MAPPING
+            GrpcPermissionGrantOriginKind.PERMISSION_GRANT_ORIGIN_KIND_DIRECT_PERMISSION ->
+                PermissionGrantOriginKind.DIRECT_PERMISSION
+            else -> return null
+        }
+
+    return PermissionGrantOrigin(
+        kind = kind,
+        roleKey = origin.roleKey.takeIf { it.isNotEmpty() },
+        mappingId = origin.mappingId.takeIf { it.isNotEmpty() },
+        inheritedPath = origin.inheritedPathList.toList(),
+    )
+}
 
 private fun GrpcPermissionScope.toDomain(): PermissionScope =
     when (kind) {
