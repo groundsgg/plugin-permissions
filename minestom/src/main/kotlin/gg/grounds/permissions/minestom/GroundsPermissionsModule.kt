@@ -7,6 +7,7 @@ import gg.grounds.permissions.PermissionSnapshotRefreshSweep
 import gg.grounds.permissions.Permissions
 import gg.grounds.permissions.SnapshotPermissions
 import gg.grounds.permissions.catalog.CollectedPermissionManifest
+import gg.grounds.permissions.catalog.PermissionManifestCollection
 import gg.grounds.runtime.GroundsModule
 import gg.grounds.runtime.GroundsServerContext
 import java.time.Clock
@@ -46,11 +47,17 @@ class GroundsPermissionsModule(private val clock: Clock = Clock.systemUTC()) : G
             Executors.newSingleThreadExecutor { runnable ->
                 Thread(runnable, "grounds-permissions-manifest-catalog").apply { isDaemon = true }
             }
+        // Collected before the checker is built: it has to know which permissions are negative
+        // before it answers its first question. Registration with the catalog service is the slow
+        // part and stays off-thread below.
+        val manifests = collectActivePermissionManifests(ctx.activeModuleProviders)
+
         val permissions =
             SnapshotPermissions(
                 snapshots = snapshots,
                 defaultScope = config.context.toCheckScope(),
                 clock = clock,
+                negativePermissions = manifests.negativePermissionKeys(),
             )
         val loader =
             MinestomPermissionSnapshotLoader(
@@ -105,7 +112,7 @@ class GroundsPermissionsModule(private val clock: Clock = Clock.systemUTC()) : G
         ctx.onShutdown { stop() }
 
         registerActivePermissionManifests(
-            activeProviders = ctx.activeModuleProviders,
+            manifests = manifests,
             manifestClient = manifestClient,
             manifestExecutor = manifestExecutor,
             context = config.context,
@@ -133,15 +140,14 @@ class GroundsPermissionsModule(private val clock: Clock = Clock.systemUTC()) : G
     }
 
     private fun registerActivePermissionManifests(
-        activeProviders: Iterable<gg.grounds.runtime.ActiveGroundsModuleProvider>,
+        manifests: PermissionManifestCollection,
         manifestClient: PermissionCatalogClient,
         manifestExecutor: ExecutorService,
         context: PermissionSnapshotContext,
     ) {
         try {
             manifestExecutor.execute {
-                val collection = collectActivePermissionManifests(activeProviders)
-                collection.failures.forEach { failure ->
+                manifests.failures.forEach { failure ->
                     logger.warn(
                         "Skipped malformed permission manifest (originId={}, originVersion={}, reason={})",
                         failure.origin.id,
@@ -151,7 +157,7 @@ class GroundsPermissionsModule(private val clock: Clock = Clock.systemUTC()) : G
                 }
                 val registration =
                     MinestomPermissionManifestRegistrar(manifestClient, context)
-                        .register(collection.manifests)
+                        .register(manifests.manifests)
                 registration.registered.forEach(::logManifestRegistration)
                 registration.failures.forEach { failure ->
                     logger.warn(

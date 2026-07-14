@@ -60,6 +60,15 @@ data class PermissionManifestEntry(
     val label: String,
     val description: String,
     val supportedScopes: List<PermissionManifestScope>,
+    /**
+     * Marks a permission whose meaning is inverted: holding it takes something away rather than
+     * granting it (a mute, a ban from a channel).
+     *
+     * A wildcard grant means "give this player everything", which must never be read as "mute
+     * them". Negative permissions are therefore only ever matched by an exact grant — see
+     * `SnapshotPermissions`.
+     */
+    val negative: Boolean = false,
 )
 
 enum class PermissionManifestScope {

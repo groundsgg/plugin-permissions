@@ -9,7 +9,21 @@ data class PermissionManifestCollectionFailure(val origin: ManifestOrigin, val r
 data class PermissionManifestCollection(
     val manifests: List<CollectedPermissionManifest>,
     val failures: List<PermissionManifestCollectionFailure>,
-)
+) {
+    /**
+     * The permission keys the loaded plugins declared as negative.
+     *
+     * Only plugins running in this JVM can be asked about a permission, so their own manifests are
+     * the complete authority here — no catalog round-trip needed.
+     */
+    fun negativePermissionKeys(): Set<String> =
+        manifests
+            .asSequence()
+            .flatMap { it.manifest.permissions.asSequence() }
+            .filter { it.negative }
+            .map { it.key }
+            .toSet()
+}
 
 class PermissionManifestCollector {
     fun collect(origins: Iterable<ManifestOrigin>): PermissionManifestCollection {

@@ -201,15 +201,69 @@ class PermissionCheckerTest {
         assertFalse(permissions.hasPermission(playerId, "chat.send"))
     }
 
+    // An operator holds ALLOW *. That says "give this player everything" — it must not hand them
+    // grounds.chat.muted, which takes chat away. This muted every admin on the network.
+    @Test
+    fun globalWildcardDoesNotGrantANegativePermission() {
+        val permissions =
+            permissions(
+                allowPatterns = listOf(allow("*")),
+                negativePermissions = setOf("grounds.chat.muted"),
+            )
+
+        assertFalse(permissions.hasPermission(playerId, "grounds.chat.muted"))
+        assertTrue(permissions.hasPermission(playerId, "grounds.chat.staff"))
+    }
+
+    @Test
+    fun prefixWildcardDoesNotGrantANegativePermission() {
+        val permissions =
+            permissions(
+                allowPatterns = listOf(allow("grounds.chat.*")),
+                negativePermissions = setOf("grounds.chat.muted"),
+            )
+
+        assertFalse(permissions.hasPermission(playerId, "grounds.chat.muted"))
+        assertTrue(permissions.hasPermission(playerId, "grounds.chat.staff"))
+    }
+
+    // Muting somebody still has to work — by name.
+    @Test
+    fun exactGrantStillAppliesANegativePermission() {
+        val permissions =
+            permissions(
+                allowPatterns = listOf(allow("grounds.chat.muted")),
+                negativePermissions = setOf("grounds.chat.muted"),
+            )
+
+        assertTrue(permissions.hasPermission(playerId, "grounds.chat.muted"))
+    }
+
+    // A wildcard cannot grant it, so a DENY next to it has nothing to overrule — but an exact
+    // grant that was later revoked must still lose.
+    @Test
+    fun denyBeatsAnExactGrantOfANegativePermission() {
+        val permissions =
+            permissions(
+                allowPatterns = listOf(allow("grounds.chat.muted")),
+                denyPatterns = listOf(deny("grounds.chat.muted")),
+                negativePermissions = setOf("grounds.chat.muted"),
+            )
+
+        assertFalse(permissions.hasPermission(playerId, "grounds.chat.muted"))
+    }
+
     private fun permissions(
         allowPatterns: List<PermissionGrant> = emptyList(),
         denyPatterns: List<PermissionGrant> = emptyList(),
         scope: PermissionCheckScope = PermissionCheckScope.global(),
+        negativePermissions: Set<String> = emptySet(),
     ): Permissions =
         SnapshotPermissions(
             mapOf(playerId to snapshot(allowPatterns = allowPatterns, denyPatterns = denyPatterns)),
             defaultScope = scope,
             clock = clock,
+            negativePermissions = negativePermissions,
         )
 
     private fun snapshot(
