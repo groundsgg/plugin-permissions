@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/groundsgg/plugin-permissions/compare/v0.4.0...v0.5.0) (2026-07-14)
+
+
+### Features
+
+* bridge permissions into the platforms' native command gates ([#11](https://github.com/groundsgg/plugin-permissions/issues/11)) ([64429a1](https://github.com/groundsgg/plugin-permissions/commit/64429a1c52ba52f5e3b02d131e976dcaaa2f6ad7))
+
 ## [0.4.0](https://github.com/groundsgg/plugin-permissions/compare/v0.3.0...v0.4.0) (2026-07-13)
 
 
