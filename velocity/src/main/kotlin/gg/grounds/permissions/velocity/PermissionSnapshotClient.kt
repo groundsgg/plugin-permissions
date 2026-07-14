@@ -92,6 +92,9 @@ class GrpcPermissionSnapshotClient private constructor(private val channel: Mana
             return GrpcPermissionSnapshotClient(channel)
         }
 
+        internal fun create(channel: ManagedChannel): GrpcPermissionSnapshotClient =
+            GrpcPermissionSnapshotClient(channel)
+
         private const val DEFAULT_TIMEOUT_MS = 2000L
     }
 }

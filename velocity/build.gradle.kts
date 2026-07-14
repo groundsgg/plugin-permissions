@@ -10,6 +10,8 @@ dependencies {
     implementation("tools.jackson.module:jackson-module-kotlin:3.1.0")
 
     testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation(testFixtures(project(":common")))
+    testImplementation("io.grpc:grpc-inprocess:1.82.0")
     testImplementation("org.slf4j:slf4j-api")
     testImplementation("com.velocitypowered:velocity-api")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")

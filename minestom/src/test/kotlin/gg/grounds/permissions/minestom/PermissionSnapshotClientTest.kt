@@ -1,20 +1,13 @@
 package gg.grounds.permissions.minestom
 
-import com.google.protobuf.Timestamp
 import gg.grounds.grpc.permissions.GetPlayerSnapshotRequest
-import gg.grounds.grpc.permissions.PermissionEffect.PERMISSION_EFFECT_ALLOW
-import gg.grounds.grpc.permissions.PermissionGrant
-import gg.grounds.grpc.permissions.PermissionGrantOrigin
-import gg.grounds.grpc.permissions.PermissionGrantOriginKind.PERMISSION_GRANT_ORIGIN_KIND_GROUP_MAPPING
-import gg.grounds.grpc.permissions.PermissionGrantSource.PERMISSION_GRANT_SOURCE_ROLE
-import gg.grounds.grpc.permissions.PermissionScope
-import gg.grounds.grpc.permissions.PermissionScopeKind.PERMISSION_SCOPE_KIND_GLOBAL
 import gg.grounds.grpc.permissions.PermissionSnapshotServiceGrpc
 import gg.grounds.grpc.permissions.PlayerPermissionSnapshot
+import gg.grounds.permissions.ReleasedPermissionSnapshotFixture
 import io.grpc.Server
-import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder
+import io.grpc.inprocess.InProcessChannelBuilder
+import io.grpc.inprocess.InProcessServerBuilder
 import io.grpc.stub.StreamObserver
-import java.util.UUID
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
@@ -29,11 +22,13 @@ class PermissionSnapshotClientTest {
     }
 
     @Test
-    fun `sends only player and server context and maps grant origin`() {
-        val playerId = UUID.randomUUID()
+    fun `consumes authoritative backend snapshot without caller groups`() {
+        val playerId = ReleasedPermissionSnapshotFixture.playerId
         var capturedRequest: GetPlayerSnapshotRequest? = null
+        val serverName = InProcessServerBuilder.generateName()
         server =
-            NettyServerBuilder.forPort(0)
+            InProcessServerBuilder.forName(serverName)
+                .directExecutor()
                 .addService(
                     object : PermissionSnapshotServiceGrpc.PermissionSnapshotServiceImplBase() {
                         override fun getPlayerSnapshot(
@@ -41,15 +36,16 @@ class PermissionSnapshotClientTest {
                             responseObserver: StreamObserver<PlayerPermissionSnapshot>,
                         ) {
                             capturedRequest = request
-                            responseObserver.onNext(snapshotResponse(playerId))
+                            responseObserver.onNext(ReleasedPermissionSnapshotFixture.proto())
                             responseObserver.onCompleted()
                         }
                     }
                 )
                 .build()
                 .start()
+        val channel = InProcessChannelBuilder.forName(serverName).directExecutor().build()
 
-        GrpcPermissionSnapshotClient.create("localhost:${server!!.port}").use { client ->
+        GrpcPermissionSnapshotClient.create(channel).use { client ->
             val result =
                 client.fetchSnapshot(
                     playerId,
@@ -63,40 +59,7 @@ class PermissionSnapshotClientTest {
             assertEquals(playerId.toString(), request.playerId)
             assertEquals("paper", request.serverType)
             assertEquals("lobby-1", request.serverId)
-            assertEquals(
-                gg.grounds.permissions.PermissionGrantOrigin(
-                    kind = gg.grounds.permissions.PermissionGrantOriginKind.GROUP_MAPPING,
-                    roleKey = "moderator",
-                    mappingId = "mapping-1",
-                    inheritedPath = listOf("member", "moderator"),
-                ),
-                success.snapshot.allowPatterns.single().origin,
-            )
+            assertEquals(ReleasedPermissionSnapshotFixture.expected(), success.snapshot)
         }
-    }
-
-    private fun snapshotResponse(playerId: UUID): PlayerPermissionSnapshot {
-        val timestamp = Timestamp.newBuilder().setSeconds(1_700_000_000).build()
-        return PlayerPermissionSnapshot.newBuilder()
-            .setPlayerId(playerId.toString())
-            .setPolicyVersion(42)
-            .setIssuedAt(timestamp)
-            .setRefreshAfter(timestamp)
-            .setExpiresAt(timestamp)
-            .addAllowPatterns(
-                PermissionGrant.newBuilder()
-                    .setEffect(PERMISSION_EFFECT_ALLOW)
-                    .setPattern("grounds.chat")
-                    .setScope(PermissionScope.newBuilder().setKind(PERMISSION_SCOPE_KIND_GLOBAL))
-                    .setSource(PERMISSION_GRANT_SOURCE_ROLE)
-                    .setOrigin(
-                        PermissionGrantOrigin.newBuilder()
-                            .setKind(PERMISSION_GRANT_ORIGIN_KIND_GROUP_MAPPING)
-                            .setRoleKey("moderator")
-                            .setMappingId("mapping-1")
-                            .addAllInheritedPath(listOf("member", "moderator"))
-                    )
-            )
-            .build()
     }
 }
