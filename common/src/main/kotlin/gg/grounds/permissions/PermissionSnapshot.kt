@@ -37,12 +37,27 @@ enum class PermissionGrantSource {
     PLAYER,
 }
 
+enum class PermissionGrantOriginKind {
+    DEFAULT_ROLE,
+    DIRECT_ROLE,
+    GROUP_MAPPING,
+    DIRECT_PERMISSION,
+}
+
+data class PermissionGrantOrigin(
+    val kind: PermissionGrantOriginKind,
+    val roleKey: String? = null,
+    val mappingId: String? = null,
+    val inheritedPath: List<String> = emptyList(),
+)
+
 data class PermissionGrant(
     val effect: PermissionEffect,
     val pattern: String,
     val scope: PermissionScope,
     val source: PermissionGrantSource,
     val expiresAt: Instant? = null,
+    val origin: PermissionGrantOrigin? = null,
 )
 
 data class RoleMetadata(

@@ -2,6 +2,7 @@ package gg.grounds.permissions.velocity
 
 import gg.grounds.permissions.PermissionEffect
 import gg.grounds.permissions.PermissionGrant
+import gg.grounds.permissions.PermissionGrantOrigin
 import gg.grounds.permissions.PermissionGrantSource
 import gg.grounds.permissions.PermissionScope
 import gg.grounds.permissions.PermissionScopeKind
@@ -112,6 +113,7 @@ private data class CachedPermissionGrant(
     val scope: CachedPermissionScope,
     val source: PermissionGrantSource,
     val expiresAt: String? = null,
+    val origin: PermissionGrantOrigin? = null,
 ) {
     fun toDomain(): PermissionGrant =
         PermissionGrant(
@@ -120,6 +122,7 @@ private data class CachedPermissionGrant(
             scope = scope.toDomain(),
             source = source,
             expiresAt = expiresAt?.let(Instant::parse),
+            origin = origin,
         )
 }
 
@@ -158,6 +161,7 @@ private fun PermissionGrant.toCache(): CachedPermissionGrant =
         scope = scope.toCache(),
         source = source,
         expiresAt = expiresAt?.toString(),
+        origin = origin,
     )
 
 private fun PermissionScope.toCache(): CachedPermissionScope = CachedPermissionScope(kind, value)
