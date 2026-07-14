@@ -3,6 +3,7 @@ package gg.grounds.permissions.velocity
 import com.google.inject.Inject
 import com.velocitypowered.api.command.CommandMeta
 import com.velocitypowered.api.event.Subscribe
+import com.velocitypowered.api.event.permission.PermissionsSetupEvent
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent
 import com.velocitypowered.api.plugin.Plugin
@@ -13,6 +14,7 @@ import gg.grounds.BuildInfo
 import gg.grounds.permissions.InMemoryPermissionSnapshots
 import gg.grounds.permissions.PermissionCheckScope
 import gg.grounds.permissions.PermissionSnapshotRefreshSweep
+import gg.grounds.permissions.Permissions
 import gg.grounds.permissions.SnapshotPermissions
 import gg.grounds.permissions.catalog.PermissionManifest
 import gg.grounds.permissions.catalog.PermissionManifestCollector
@@ -43,6 +45,7 @@ constructor(
     private var catalogClient: PermissionCatalogClient? = null
     private var commandMeta: CommandMeta? = null
     private var refreshTask: ScheduledTask? = null
+    private var permissions: Permissions? = null
 
     init {
         logger.info("Initialized plugin (plugin=plugin-permissions, version={})", BuildInfo.VERSION)
@@ -100,6 +103,7 @@ constructor(
 
         val permissions =
             SnapshotPermissions(snapshots, defaultScope = config.context.toCheckScope())
+        this.permissions = permissions
         loadCommandPermissions()?.let { commandPermissions ->
             val router =
                 PermissionCommandRouter(
@@ -162,6 +166,11 @@ constructor(
     }
 
     @Subscribe
+    fun onPermissionsSetup(event: PermissionsSetupEvent) {
+        permissions?.let { event.provider = SnapshotPermissionProvider(it, event.provider) }
+    }
+
+    @Subscribe
     fun onShutdown(event: ProxyShutdownEvent) {
         commandMeta?.let(proxy.commandManager::unregister)
         commandMeta = null
@@ -171,6 +180,7 @@ constructor(
         client = null
         catalogClient?.close()
         catalogClient = null
+        permissions = null
     }
 
     private fun registerProviders() {
