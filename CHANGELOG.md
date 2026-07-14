@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/groundsgg/plugin-permissions/compare/v0.5.0...v0.5.1) (2026-07-14)
+
+
+### Bug Fixes
+
+* **snapshot:** remove caller identity groups ([#14](https://github.com/groundsgg/plugin-permissions/issues/14)) ([4fe9c15](https://github.com/groundsgg/plugin-permissions/commit/4fe9c152164a0cc838146ec8f7c50080cf709448))
+
 ## [0.5.0](https://github.com/groundsgg/plugin-permissions/compare/v0.4.0...v0.5.0) (2026-07-14)
 
 
