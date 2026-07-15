@@ -64,16 +64,23 @@ class InMemoryPermissionSnapshots(initialSnapshots: Map<UUID, PermissionSnapshot
     }
 }
 
+/**
+ * [negativePermissions] are the keys the loaded plugins declared as inverted — holding one takes
+ * something away instead of granting it. They are never handed out by a wildcard: an operator with
+ * `ALLOW *` means "give this player everything", not "mute them".
+ */
 class SnapshotPermissions(
     private val snapshots: InMemoryPermissionSnapshots,
     private val defaultScope: PermissionCheckScope = PermissionCheckScope.global(),
     private val clock: Clock = Clock.systemUTC(),
+    private val negativePermissions: Set<String> = emptySet(),
 ) : Permissions {
     constructor(
         snapshots: Map<UUID, PermissionSnapshot>,
         defaultScope: PermissionCheckScope = PermissionCheckScope.global(),
         clock: Clock = Clock.systemUTC(),
-    ) : this(InMemoryPermissionSnapshots(snapshots), defaultScope, clock)
+        negativePermissions: Set<String> = emptySet(),
+    ) : this(InMemoryPermissionSnapshots(snapshots), defaultScope, clock, negativePermissions)
 
     override fun hasPermission(playerId: UUID, permission: String): Boolean {
         return hasPermission(playerId, permission, defaultScope)
@@ -100,11 +107,13 @@ class SnapshotPermissions(
             return false
         }
 
+        val negative = permission in negativePermissions
+
         val candidate =
             (snapshot.allowPatterns + snapshot.denyPatterns)
                 .asSequence()
                 .filterNot { it.isExpired(now) }
-                .filter { PermissionPattern.matches(it.pattern, permission) }
+                .filter { PermissionPattern.matches(it.pattern, permission, negative) }
                 .mapNotNull { grant -> grant.toCandidate(scope) }
                 .maxWithOrNull(
                     compareBy<PermissionCandidate> { it.scopeSpecificity }
@@ -147,15 +156,24 @@ class SnapshotPermissions(
 }
 
 private object PermissionPattern {
-    fun matches(pattern: String, permission: String): Boolean =
-        when {
+    fun matches(pattern: String, permission: String, negative: Boolean = false): Boolean {
+        if (pattern == permission) {
+            return true
+        }
+        // A wildcard says "everything", which is never meant to include a permission that takes
+        // something away. Those have to be granted by name.
+        if (negative) {
+            return false
+        }
+        return when {
             pattern == "*" -> true
             pattern.endsWith(".*") -> {
                 val prefix = pattern.removeSuffix("*")
                 permission.startsWith(prefix) && permission.length > prefix.length
             }
-            else -> pattern == permission
+            else -> false
         }
+    }
 
     fun specificity(pattern: String): Int =
         when {

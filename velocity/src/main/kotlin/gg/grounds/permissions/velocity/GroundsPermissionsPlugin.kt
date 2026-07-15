@@ -17,6 +17,7 @@ import gg.grounds.permissions.PermissionSnapshotRefreshSweep
 import gg.grounds.permissions.Permissions
 import gg.grounds.permissions.SnapshotPermissions
 import gg.grounds.permissions.catalog.PermissionManifest
+import gg.grounds.permissions.catalog.PermissionManifestCollection
 import gg.grounds.permissions.catalog.PermissionManifestCollector
 import io.grpc.LoadBalancerRegistry
 import io.grpc.NameResolverRegistry
@@ -101,8 +102,17 @@ constructor(
                 .repeat(config.refreshIntervalSeconds, TimeUnit.SECONDS)
                 .schedule()
 
+        // Collected before the checker is built: it has to know which permissions are negative
+        // before it answers its first question. Registration with the catalog service is the slow
+        // part and stays on the scheduler below.
+        val manifests = collectPermissionManifests()
+
         val permissions =
-            SnapshotPermissions(snapshots, defaultScope = config.context.toCheckScope())
+            SnapshotPermissions(
+                snapshots,
+                defaultScope = config.context.toCheckScope(),
+                negativePermissions = manifests.negativePermissionKeys(),
+            )
         this.permissions = permissions
         loadCommandPermissions()?.let { commandPermissions ->
             val router =
@@ -154,7 +164,10 @@ constructor(
         }
 
         proxy.scheduler
-            .buildTask(this, Runnable { registerActivePermissionManifests(manifestClient, config) })
+            .buildTask(
+                this,
+                Runnable { registerActivePermissionManifests(manifestClient, config, manifests) },
+            )
             .schedule()
 
         logger.info(
@@ -201,10 +214,7 @@ constructor(
             null
         }
 
-    private fun registerActivePermissionManifests(
-        manifestClient: PermissionCatalogClient,
-        config: VelocityPermissionsConfig,
-    ) {
+    private fun collectPermissionManifests(): PermissionManifestCollection {
         val collection =
             PermissionManifestCollector()
                 .collect(discoverPermissionManifestOrigins(proxy.pluginManager.plugins))
@@ -216,6 +226,14 @@ constructor(
                 failure.reason,
             )
         }
+        return collection
+    }
+
+    private fun registerActivePermissionManifests(
+        manifestClient: PermissionCatalogClient,
+        config: VelocityPermissionsConfig,
+        collection: PermissionManifestCollection,
+    ) {
         val registration =
             PermissionManifestRegistrar(manifestClient, config.context)
                 .register(collection.manifests)
