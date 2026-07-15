@@ -1,0 +1,90 @@
+player_id: "00000000-0000-0000-0000-000000000321"
+policy_version: 73
+issued_at { seconds: 1893456000 }
+refresh_after { seconds: 1893456300 }
+expires_at { seconds: 1893459600 }
+allow_patterns {
+  effect: PERMISSION_EFFECT_ALLOW
+  pattern: "spawn.use"
+  scope { kind: PERMISSION_SCOPE_KIND_GLOBAL }
+  source: PERMISSION_GRANT_SOURCE_ROLE
+  origin {
+    kind: PERMISSION_GRANT_ORIGIN_KIND_DEFAULT_ROLE
+    role_key: "default"
+  }
+}
+allow_patterns {
+  effect: PERMISSION_EFFECT_ALLOW
+  pattern: "build.use"
+  scope { kind: PERMISSION_SCOPE_KIND_GLOBAL }
+  source: PERMISSION_GRANT_SOURCE_ROLE
+  origin {
+    kind: PERMISSION_GRANT_ORIGIN_KIND_DIRECT_ROLE
+    role_key: "builder"
+  }
+}
+allow_patterns {
+  effect: PERMISSION_EFFECT_ALLOW
+  pattern: "staff.chat"
+  scope { kind: PERMISSION_SCOPE_KIND_GLOBAL }
+  source: PERMISSION_GRANT_SOURCE_ROLE
+  origin {
+    kind: PERMISSION_GRANT_ORIGIN_KIND_GROUP_MAPPING
+    role_key: "staff"
+    mapping_id: "00000000-0000-0000-0000-000000000322"
+  }
+}
+allow_patterns {
+  effect: PERMISSION_EFFECT_ALLOW
+  pattern: "home.use"
+  scope { kind: PERMISSION_SCOPE_KIND_GLOBAL }
+  source: PERMISSION_GRANT_SOURCE_ROLE
+  origin {
+    kind: PERMISSION_GRANT_ORIGIN_KIND_GROUP_MAPPING
+    role_key: "member"
+    mapping_id: "00000000-0000-0000-0000-000000000322"
+    inherited_path: "staff"
+    inherited_path: "member"
+  }
+}
+deny_patterns {
+  effect: PERMISSION_EFFECT_DENY
+  pattern: "operator.use"
+  scope {
+    kind: PERMISSION_SCOPE_KIND_SERVER
+    value: "survival-1"
+  }
+  source: PERMISSION_GRANT_SOURCE_PLAYER
+  expires_at { seconds: 1893459600 }
+  origin { kind: PERMISSION_GRANT_ORIGIN_KIND_DIRECT_PERMISSION }
+}
+role_keys: "default"
+role_keys: "builder"
+role_keys: "staff"
+role_keys: "member"
+role_metadata {
+  key: "default"
+  name: "Default"
+  prefix: "[D]"
+  color: "gray"
+  sort_order: 100
+}
+role_metadata {
+  key: "builder"
+  name: "Builder"
+  prefix: "[B]"
+  color: "green"
+  sort_order: 75
+}
+role_metadata {
+  key: "staff"
+  name: "Staff"
+  prefix: "[S]"
+  color: "red"
+  sort_order: 50
+}
+role_metadata {
+  key: "member"
+  name: "Member"
+  sort_order: 25
+}

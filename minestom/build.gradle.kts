@@ -20,5 +20,7 @@ dependencies {
     implementation("org.slf4j:slf4j-api")
 
     testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation(testFixtures(project(":common")))
+    testImplementation("io.grpc:grpc-inprocess:1.82.0")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
