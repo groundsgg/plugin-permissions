@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/groundsgg/plugin-permissions/compare/v0.5.1...v0.6.0) (2026-07-24)
+
+
+### Features
+
+* **scope:** honour ENVIRONMENT-scoped grants ([#17](https://github.com/groundsgg/plugin-permissions/issues/17)) ([c5b826d](https://github.com/groundsgg/plugin-permissions/commit/c5b826d6e2bd4ab5d0d9900b022e87e0ec363d33))
+
 ## [0.5.1](https://github.com/groundsgg/plugin-permissions/compare/v0.5.0...v0.5.1) (2026-07-14)
 
 
