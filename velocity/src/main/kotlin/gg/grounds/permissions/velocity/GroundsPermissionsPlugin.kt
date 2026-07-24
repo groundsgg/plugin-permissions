@@ -260,6 +260,10 @@ data class VelocityPermissionsConfig(
                             },
                         serverId =
                             environment["GROUNDS_PERMISSION_SERVER_ID"]?.takeIf { it.isNotBlank() },
+                        environment =
+                            environment["GROUNDS_PERMISSION_ENVIRONMENT"]?.takeIf {
+                                it.isNotBlank()
+                            },
                     ),
                 refreshIntervalSeconds =
                     environment["PERMISSIONS_REFRESH_INTERVAL_SECONDS"]
@@ -273,9 +277,4 @@ data class VelocityPermissionsConfig(
 }
 
 fun PermissionSnapshotContext.toCheckScope(): PermissionCheckScope =
-    when {
-        serverId != null && serverType != null -> PermissionCheckScope.server(serverId, serverType)
-        serverId != null -> PermissionCheckScope.serverOnly(serverId)
-        serverType != null -> PermissionCheckScope.serverType(serverType)
-        else -> PermissionCheckScope.global()
-    }
+    PermissionCheckScope(serverType = serverType, server = serverId, environment = environment)
