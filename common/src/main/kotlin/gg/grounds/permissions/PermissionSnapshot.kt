@@ -10,6 +10,7 @@ enum class PermissionEffect {
 
 enum class PermissionScopeKind {
     GLOBAL,
+    ENVIRONMENT,
     SERVER_TYPE,
     SERVER,
 }
@@ -23,6 +24,9 @@ data class PermissionScope(val kind: PermissionScopeKind, val value: String? = n
 
     companion object {
         fun global(): PermissionScope = PermissionScope(PermissionScopeKind.GLOBAL)
+
+        fun environment(environment: String): PermissionScope =
+            PermissionScope(PermissionScopeKind.ENVIRONMENT, environment)
 
         fun serverType(serverType: String): PermissionScope =
             PermissionScope(PermissionScopeKind.SERVER_TYPE, serverType)

@@ -27,7 +27,12 @@ import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
-data class PermissionSnapshotContext(val serverType: String? = null, val serverId: String? = null)
+data class PermissionSnapshotContext(
+    val serverType: String? = null,
+    val serverId: String? = null,
+    /** Deployment this proxy belongs to (`stage`, `prod`), for environment-scoped grants. */
+    val environment: String? = null,
+)
 
 sealed interface PermissionSnapshotFetchResult {
     data class Success(val snapshot: PermissionSnapshot) : PermissionSnapshotFetchResult
@@ -108,13 +113,13 @@ private fun PlayerPermissionSnapshot.toDomain(): PermissionSnapshot =
         issuedAt = issuedAt.toInstant(),
         refreshAfter = refreshAfter.toInstant(),
         expiresAt = expiresAt.toInstant(),
-        allowPatterns = allowPatternsList.map { it.toDomain() },
-        denyPatterns = denyPatternsList.map { it.toDomain() },
+        allowPatterns = allowPatternsList.mapNotNull { it.toDomain() },
+        denyPatterns = denyPatternsList.mapNotNull { it.toDomain() },
         roleKeys = roleKeysList.toSet(),
         roleMetadata = roleMetadataList.map { it.toDomain() },
     )
 
-private fun GrpcPermissionGrant.toDomain(): PermissionGrant =
+private fun GrpcPermissionGrant.toDomain(): PermissionGrant? =
     PermissionGrant(
         effect =
             when (effect) {
@@ -122,7 +127,7 @@ private fun GrpcPermissionGrant.toDomain(): PermissionGrant =
                 else -> PermissionEffect.ALLOW
             },
         pattern = pattern,
-        scope = scope.toDomain(),
+        scope = scope.toDomain() ?: return null,
         source =
             when (source) {
                 GrpcPermissionGrantSource.PERMISSION_GRANT_SOURCE_PLAYER ->
@@ -157,12 +162,19 @@ private fun GrpcPermissionGrant.toDomainOrigin(): PermissionGrantOrigin? {
     )
 }
 
-private fun GrpcPermissionScope.toDomain(): PermissionScope =
+// Returns null for a scope kind this build does not know. Dropping the grant
+// is the only safe reading: the previous `else -> global()` turned a scope
+// added after this jar was built into an unconditional grant, which for an
+// ALLOW means handing out a permission everywhere it was meant to be narrowed.
+private fun GrpcPermissionScope.toDomain(): PermissionScope? =
     when (kind) {
+        GrpcPermissionScopeKind.PERMISSION_SCOPE_KIND_GLOBAL -> PermissionScope.global()
+        GrpcPermissionScopeKind.PERMISSION_SCOPE_KIND_ENVIRONMENT ->
+            PermissionScope.environment(value)
         GrpcPermissionScopeKind.PERMISSION_SCOPE_KIND_SERVER -> PermissionScope.server(value)
         GrpcPermissionScopeKind.PERMISSION_SCOPE_KIND_SERVER_TYPE ->
             PermissionScope.serverType(value)
-        else -> PermissionScope.global()
+        else -> null
     }
 
 private fun GrpcRoleMetadata.toDomain(): RoleMetadata =

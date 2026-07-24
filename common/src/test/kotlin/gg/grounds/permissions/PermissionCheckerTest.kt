@@ -191,6 +191,46 @@ class PermissionCheckerTest {
     }
 
     @Test
+    fun environmentScopedGrantsOverrideGlobalOnesInThatEnvironmentOnly() {
+        val allowPatterns = listOf(allow("region.edit", PermissionScope.global()))
+        val denyPatterns = listOf(deny("region.edit", PermissionScope.environment("stage")))
+
+        assertFalse(
+            permissions(
+                    allowPatterns = allowPatterns,
+                    denyPatterns = denyPatterns,
+                    scope = PermissionCheckScope.environment("stage"),
+                )
+                .hasPermission(playerId, "region.edit")
+        )
+        assertTrue(
+            permissions(
+                    allowPatterns = allowPatterns,
+                    denyPatterns = denyPatterns,
+                    scope = PermissionCheckScope.environment("prod"),
+                )
+                .hasPermission(playerId, "region.edit")
+        )
+    }
+
+    @Test
+    fun serverTypeScopedGrantsOutrankEnvironmentScopedOnes() {
+        val permissions =
+            permissions(
+                allowPatterns = listOf(allow("region.edit", PermissionScope.serverType("lobby"))),
+                denyPatterns = listOf(deny("region.edit", PermissionScope.environment("stage"))),
+                scope =
+                    PermissionCheckScope(
+                        serverType = "lobby",
+                        server = "lobby-1",
+                        environment = "stage",
+                    ),
+            )
+
+        assertTrue(permissions.hasPermission(playerId, "region.edit"))
+    }
+
+    @Test
     fun ignoresExpiredIndividualGrants() {
         val permissions =
             permissions(

@@ -15,7 +15,18 @@ interface Permissions {
     fun snapshot(playerId: UUID): PermissionSnapshot?
 }
 
-data class PermissionCheckScope(val serverType: String? = null, val server: String? = null) {
+/**
+ * Where a permission is being checked.
+ *
+ * `environment` is orthogonal to the two server dimensions: it names the deployment this server
+ * belongs to (`stage`, `prod`), not what it runs. A server therefore usually carries all three, and
+ * a grant may pin any one.
+ */
+data class PermissionCheckScope(
+    val serverType: String? = null,
+    val server: String? = null,
+    val environment: String? = null,
+) {
     companion object {
         fun global(): PermissionCheckScope = PermissionCheckScope()
 
@@ -26,6 +37,9 @@ data class PermissionCheckScope(val serverType: String? = null, val server: Stri
             PermissionCheckScope(serverType = serverType, server = server)
 
         fun serverOnly(server: String): PermissionCheckScope = PermissionCheckScope(server = server)
+
+        fun environment(environment: String): PermissionCheckScope =
+            PermissionCheckScope(environment = environment)
     }
 }
 
@@ -135,11 +149,16 @@ class SnapshotPermissions(
         )
     }
 
+    // Least to most specific: an environment names a whole deployment, a
+    // server type names a workload inside it, a server names one instance.
+    // Mirrors PolicyEngine.specificityFor in service-permissions — the two
+    // must agree or an admin preview disagrees with the running server.
     private fun PermissionScope.specificityFor(scope: PermissionCheckScope): Int? =
         when (kind) {
             PermissionScopeKind.GLOBAL -> 0
-            PermissionScopeKind.SERVER_TYPE -> if (value == scope.serverType) 1 else null
-            PermissionScopeKind.SERVER -> if (value == scope.server) 2 else null
+            PermissionScopeKind.ENVIRONMENT -> if (value == scope.environment) 1 else null
+            PermissionScopeKind.SERVER_TYPE -> if (value == scope.serverType) 2 else null
+            PermissionScopeKind.SERVER -> if (value == scope.server) 3 else null
         }
 
     private fun PermissionGrant.isExpired(now: Instant): Boolean =
