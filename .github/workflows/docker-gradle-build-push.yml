@@ -1,0 +1,23 @@
+name: Docker Build
+
+# Publishes ghcr.io/groundsgg/plugin-permissions (edge on main, semver on tag).
+# The image carries the shadow JAR at /jar/plugin.jar — the shape the
+# plugin-velocity-jar Helm chart expects, so a Velocity release can pull the
+# plugin into the proxy.
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  pull_request:
+
+permissions:
+  packages: write
+  contents: write
+  actions: write
+
+jobs:
+  reusable:
+    uses: groundsgg/.github/.github/workflows/docker-gradle-build-push.yml@main
