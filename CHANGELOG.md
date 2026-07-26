@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/groundsgg/plugin-permissions/compare/v0.6.0...v0.7.0) (2026-07-26)
+
+
+### Features
+
+* migrate permissions runtime to REST ([#21](https://github.com/groundsgg/plugin-permissions/issues/21)) ([a54df6d](https://github.com/groundsgg/plugin-permissions/commit/a54df6dcbbd67651457f239d5ee373732321da85))
+
 ## [0.6.0](https://github.com/groundsgg/plugin-permissions/compare/v0.5.1...v0.6.0) (2026-07-24)
 
 
