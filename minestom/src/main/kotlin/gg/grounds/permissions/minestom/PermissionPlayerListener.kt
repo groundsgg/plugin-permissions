@@ -8,11 +8,7 @@ import net.minestom.server.event.player.AsyncPlayerPreLoginEvent
 class PermissionPlayerListener(private val loader: MinestomPermissionSnapshotLoader) {
     fun register(eventNode: EventNode<Event>) {
         eventNode.addListener(AsyncPlayerPreLoginEvent::class.java) { event ->
-            val result =
-                loader.loadSnapshot(
-                    playerId = event.gameProfile.uuid(),
-                    username = event.gameProfile.name(),
-                )
+            val result = loader.loadSnapshot(playerId = event.gameProfile.uuid())
             if (!result.allowed) {
                 event.connection.kick(Component.text(result.message))
             }

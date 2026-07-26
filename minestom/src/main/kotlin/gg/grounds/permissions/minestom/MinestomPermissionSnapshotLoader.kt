@@ -2,49 +2,43 @@ package gg.grounds.permissions.minestom
 
 import gg.grounds.permissions.InMemoryPermissionSnapshots
 import gg.grounds.permissions.PermissionSnapshot
-import java.time.Clock
+import gg.grounds.permissions.client.PermissionRuntimeClient
+import gg.grounds.permissions.client.PermissionSnapshotContext
+import gg.grounds.permissions.client.SnapshotUnavailableException
 import java.util.UUID
 import org.slf4j.Logger
 
 class MinestomPermissionSnapshotLoader(
     private val logger: Logger,
     private val snapshots: InMemoryPermissionSnapshots,
-    private val client: PermissionSnapshotClient,
+    private val client: PermissionRuntimeClient,
     private val context: PermissionSnapshotContext,
-    private val clock: Clock = Clock.systemUTC(),
 ) {
-    fun loadSnapshot(playerId: UUID, username: String): PermissionLoginResult {
-        when (val fetch = client.fetchSnapshot(playerId, context)) {
-            is PermissionSnapshotFetchResult.Success -> {
-                snapshots.put(fetch.snapshot)
-                logger.info(
-                    "Fetched permission snapshot successfully (playerId={}, username={}, policyVersion={})",
-                    playerId,
-                    username,
-                    fetch.snapshot.policyVersion,
-                )
-                return PermissionLoginResult.allowed(fetch.snapshot)
-            }
-            is PermissionSnapshotFetchResult.Unavailable -> {
-                val cached = snapshots.get(playerId)
-                if (cached != null && cached.expiresAt.isAfter(clock.instant())) {
-                    logger.warn(
-                        "Loaded cached permission snapshot after service failure (playerId={}, username={}, reason={})",
-                        playerId,
-                        username,
-                        fetch.reason,
-                    )
-                    return PermissionLoginResult.allowed(cached)
-                }
-
-                logger.warn(
-                    "Permission snapshot unavailable without valid cache (playerId={}, username={}, reason={})",
-                    playerId,
-                    username,
-                    fetch.reason,
-                )
-                return PermissionLoginResult.denied()
-            }
+    fun loadSnapshot(playerId: UUID): PermissionLoginResult {
+        return try {
+            val snapshot = client.fetchSnapshot(playerId, context)
+            snapshots.put(snapshot)
+            logger.info(
+                "Permission snapshot fetched successfully (playerId={}, policyVersion={})",
+                playerId,
+                snapshot.policyVersion,
+            )
+            PermissionLoginResult.allowed(snapshot)
+        } catch (exception: SnapshotUnavailableException) {
+            logger.warn(
+                "Permission snapshot unavailable without valid cache (playerId={}, reason={}, requestId={})",
+                playerId,
+                exception.reason.name.lowercase(),
+                exception.requestId ?: "none",
+            )
+            PermissionLoginResult.denied()
+        } catch (exception: RuntimeException) {
+            logger.error(
+                "Permission snapshot load failed (playerId={}, exceptionType={})",
+                playerId,
+                exception::class.java.name,
+            )
+            PermissionLoginResult.denied()
         }
     }
 }

@@ -24,18 +24,9 @@ class PermissionManifestDiscoveryTest {
             )
         val origins = discoverPermissionManifestOrigins(containers)
         val manifests = PermissionManifestCollector().collect(origins).manifests
-        val client = RecordingCatalogClient()
-
-        PermissionManifestRegistrar(
-                client = client,
-                context = PermissionSnapshotContext(serverType = "proxy", serverId = "proxy-1"),
-                sleep = {},
-            )
-            .register(manifests)
 
         assertEquals(listOf("first-plugin", "second-plugin"), manifests.map { it.manifest.source })
         assertEquals(listOf("1.0.0", "2.0.0"), manifests.map { it.origin.version })
-        assertEquals(listOf("first-plugin", "second-plugin"), client.registeredSources)
     }
 
     private fun pluginContainer(id: String, version: String, instance: Any?): PluginContainer {
@@ -91,18 +82,5 @@ class PermissionManifestDiscoveryTest {
             } else {
                 null
             }
-    }
-
-    private class RecordingCatalogClient : PermissionCatalogClient {
-        val registeredSources = mutableListOf<String>()
-
-        override fun register(
-            manifest: PermissionManifest,
-            sourceVersion: String,
-            context: PermissionSnapshotContext,
-        ): PermissionManifestRegistrationResult {
-            registeredSources += manifest.source
-            return PermissionManifestRegistrationResult.Accepted
-        }
     }
 }

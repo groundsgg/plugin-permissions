@@ -9,6 +9,10 @@ import gg.grounds.permissions.PermissionSnapshot
 import gg.grounds.permissions.RoleMetadata
 import gg.grounds.permissions.SnapshotPermissions
 import gg.grounds.permissions.catalog.PermissionManifest
+import gg.grounds.permissions.client.ManifestTerminalFailureStatus
+import gg.grounds.permissions.client.PermissionRuntimeStatusSnapshot
+import gg.grounds.permissions.client.PermissionSnapshotContext
+import java.net.URI
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
@@ -35,9 +39,20 @@ class PermissionCommandServiceTest {
             PermissionCommandResult.Success(
                 listOf(
                     "version=0.1.0",
-                    "target=permissions:9090",
+                    "serviceUrl=http://service-permissions-runtime:8080",
                     "serverType=lobby",
                     "serverId=proxy-1",
+                    "snapshotSuccesses=3",
+                    "snapshotFailures=2",
+                    "validCacheFallbacks=1",
+                    "failClosedDecisions=1",
+                    "manifestRetries=4",
+                    "lastManifestSuccessAt=2026-07-09T09:59:00Z",
+                    "terminalManifestFailures=1",
+                    "lastManifestFailureSource=plugin-chat",
+                    "lastManifestFailureStatus=403",
+                    "lastManifestFailureRequestId=server-request",
+                    "lastManifestFailureAt=2026-07-09T09:58:00Z",
                 )
             ),
             result,
@@ -289,8 +304,26 @@ class PermissionCommandServiceTest {
             status =
                 PermissionCommandStatus(
                     version = "0.1.0",
-                    grpcTarget = "permissions:9090",
+                    serviceUrl = URI("http://service-permissions-runtime:8080"),
                     context = PermissionSnapshotContext(serverType = "lobby", serverId = "proxy-1"),
+                    runtimeStatus = {
+                        PermissionRuntimeStatusSnapshot(
+                            snapshotSuccesses = 3,
+                            snapshotFailures = 2,
+                            validCacheFallbacks = 1,
+                            failClosedDecisions = 1,
+                            manifestRetries = 4,
+                            lastManifestSuccessAt = now.minusSeconds(60),
+                            terminalManifestFailures = 1,
+                            lastTerminalManifestFailure =
+                                ManifestTerminalFailureStatus(
+                                    source = "plugin-chat",
+                                    statusCode = 403,
+                                    requestId = "server-request",
+                                    failedAt = now.minusSeconds(120),
+                                ),
+                        )
+                    },
                 ),
         )
 
