@@ -6,13 +6,16 @@ import gg.grounds.permissions.PermissionCheckScope
 import gg.grounds.permissions.PermissionSnapshotRefreshSweep
 import gg.grounds.permissions.Permissions
 import gg.grounds.permissions.SnapshotPermissions
-import gg.grounds.permissions.catalog.CollectedPermissionManifest
+import gg.grounds.permissions.client.HttpPermissionRuntimeClient
+import gg.grounds.permissions.client.ManifestRegistrationScheduler
+import gg.grounds.permissions.client.PermissionRuntimeStatus
+import gg.grounds.permissions.client.PermissionServiceConfig
+import gg.grounds.permissions.client.PermissionSnapshotContext
+import gg.grounds.permissions.client.SnapshotUnavailableException
 import gg.grounds.runtime.GroundsModule
 import gg.grounds.runtime.GroundsServerContext
 import java.time.Clock
-import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 import net.minestom.server.MinecraftServer
@@ -24,9 +27,7 @@ import org.slf4j.LoggerFactory
 class GroundsPermissionsModule(private val clock: Clock = Clock.systemUTC()) : GroundsModule {
     private val logger: Logger = LoggerFactory.getLogger(GroundsPermissionsModule::class.java)
     private val snapshots = InMemoryPermissionSnapshots()
-    private var client: PermissionSnapshotClient? = null
-    private var catalogClient: PermissionCatalogClient? = null
-    private var catalogExecutor: ExecutorService? = null
+    private var manifestScheduler: ManifestRegistrationScheduler? = null
     private var refreshExecutor: ScheduledExecutorService? = null
     private var eventNode: EventNode<Event>? = null
 
@@ -40,12 +41,18 @@ class GroundsPermissionsModule(private val clock: Clock = Clock.systemUTC()) : G
                 environment = System.getenv(),
                 fallbackServerType = ctx.serverType.name.lowercase(),
             )
-        val snapshotClient = GrpcPermissionSnapshotClient.create(config.grpcTarget)
-        val manifestClient = GrpcPermissionCatalogClient.create(config.grpcTarget)
-        val manifestExecutor =
-            Executors.newSingleThreadExecutor { runnable ->
-                Thread(runnable, "grounds-permissions-manifest-catalog").apply { isDaemon = true }
-            }
+                ?: run {
+                    logger.info(
+                        "Permissions module disabled (serverType={}, reason=not_configured)",
+                        ctx.serverType.name.lowercase(),
+                    )
+                    return
+                }
+        val runtimeStatus = PermissionRuntimeStatus()
+        val runtimeClient =
+            HttpPermissionRuntimeClient(config = config.service, status = runtimeStatus)
+        val manifestScheduler =
+            ManifestRegistrationScheduler(client = runtimeClient, status = runtimeStatus)
         val permissions =
             SnapshotPermissions(
                 snapshots = snapshots,
@@ -56,9 +63,8 @@ class GroundsPermissionsModule(private val clock: Clock = Clock.systemUTC()) : G
             MinestomPermissionSnapshotLoader(
                 logger = logger,
                 snapshots = snapshots,
-                client = snapshotClient,
+                client = runtimeClient,
                 context = config.context,
-                clock = clock,
             )
         val refreshSweep =
             PermissionSnapshotRefreshSweep(
@@ -67,9 +73,17 @@ class GroundsPermissionsModule(private val clock: Clock = Clock.systemUTC()) : G
                     MinecraftServer.getConnectionManager().onlinePlayers.map { it.uuid }.toSet()
                 },
                 fetchSnapshot = { playerId ->
-                    when (val fetch = snapshotClient.fetchSnapshot(playerId, config.context)) {
-                        is PermissionSnapshotFetchResult.Success -> fetch.snapshot
-                        is PermissionSnapshotFetchResult.Unavailable -> null
+                    try {
+                        runtimeClient.fetchSnapshot(playerId, config.context)
+                    } catch (exception: SnapshotUnavailableException) {
+                        null
+                    } catch (exception: RuntimeException) {
+                        logger.error(
+                            "Permission snapshot refresh failed (playerId={}, exceptionType={})",
+                            playerId,
+                            exception::class.java.name,
+                        )
+                        null
                     }
                 },
                 clock = clock,
@@ -83,7 +97,12 @@ class GroundsPermissionsModule(private val clock: Clock = Clock.systemUTC()) : G
                 try {
                     refreshSweep.run()
                 } catch (exception: RuntimeException) {
-                    logger.warn("Permission snapshot refresh sweep failed", exception)
+                    logger.error(
+                        "Permission snapshot refresh sweep failed (serverType={}, serverId={}, exceptionType={})",
+                        config.context.serverType,
+                        config.context.serverId ?: "none",
+                        exception::class.java.name,
+                    )
                 }
             },
             config.refreshIntervalSeconds,
@@ -97,88 +116,55 @@ class GroundsPermissionsModule(private val clock: Clock = Clock.systemUTC()) : G
         PermissionPlayerListener(loader).register(node)
         MinecraftServer.getGlobalEventHandler().addChild(node)
         eventNode = node
-        client = snapshotClient
-        catalogClient = manifestClient
-        catalogExecutor = manifestExecutor
+        this.manifestScheduler = manifestScheduler
         this.refreshExecutor = refreshExecutor
 
         ctx.onShutdown { stop() }
 
         registerActivePermissionManifests(
             activeProviders = ctx.activeModuleProviders,
-            manifestClient = manifestClient,
-            manifestExecutor = manifestExecutor,
+            manifestScheduler = manifestScheduler,
             context = config.context,
         )
 
         logger.info(
-            "Installed permissions module (serverType={}, serverId={}, target={})",
+            "Permissions module installed successfully (serverType={}, serverId={}, serviceUrl={})",
             config.context.serverType,
-            config.context.serverId,
-            config.grpcTarget,
+            config.context.serverId ?: "none",
+            config.service.serviceUri,
         )
     }
 
     override fun stop() {
         eventNode?.let(MinecraftServer.getGlobalEventHandler()::removeChild)
         eventNode = null
-        catalogExecutor?.shutdownNow()
-        catalogExecutor = null
+        manifestScheduler?.close()
+        manifestScheduler = null
         refreshExecutor?.shutdownNow()
         refreshExecutor = null
-        client?.close()
-        client = null
-        catalogClient?.close()
-        catalogClient = null
     }
 
     private fun registerActivePermissionManifests(
         activeProviders: Iterable<gg.grounds.runtime.ActiveGroundsModuleProvider>,
-        manifestClient: PermissionCatalogClient,
-        manifestExecutor: ExecutorService,
+        manifestScheduler: ManifestRegistrationScheduler,
         context: PermissionSnapshotContext,
     ) {
-        try {
-            manifestExecutor.execute {
-                val collection = collectActivePermissionManifests(activeProviders)
-                collection.failures.forEach { failure ->
-                    logger.warn(
-                        "Skipped malformed permission manifest (originId={}, originVersion={}, reason={})",
-                        failure.origin.id,
-                        failure.origin.version,
-                        failure.reason,
-                    )
-                }
-                val registration =
-                    MinestomPermissionManifestRegistrar(manifestClient, context)
-                        .register(collection.manifests)
-                registration.registered.forEach(::logManifestRegistration)
-                registration.failures.forEach { failure ->
-                    logger.warn(
-                        "Failed to register permission catalog manifest (originId={}, source={}, attempts={}, reason={})",
-                        failure.collected.origin.id,
-                        failure.collected.manifest.source,
-                        failure.attempts,
-                        failure.reason,
-                    )
-                }
-            }
-        } catch (exception: RejectedExecutionException) {
+        val collection = collectActivePermissionManifests(activeProviders)
+        collection.failures.forEach { failure ->
             logger.warn(
-                "Skipped permission catalog registration (reason={})",
-                exception::class.java.simpleName,
+                "Permission manifest skipped (originId={}, originVersion={}, reason={})",
+                failure.origin.id,
+                failure.origin.version,
+                failure.reason,
             )
         }
-    }
-
-    private fun logManifestRegistration(collected: CollectedPermissionManifest) {
-        logger.info(
-            "Registered permission catalog manifest successfully (originId={}, source={}, version={}, permissionCount={})",
-            collected.origin.id,
-            collected.manifest.source,
-            collected.origin.version,
-            collected.manifest.permissions.size,
-        )
+        collection.manifests.forEach { collected ->
+            manifestScheduler.register(
+                manifest = collected.manifest,
+                sourceVersion = collected.origin.version,
+                context = context,
+            )
+        }
     }
 
     companion object {
@@ -187,7 +173,7 @@ class GroundsPermissionsModule(private val clock: Clock = Clock.systemUTC()) : G
 }
 
 data class MinestomPermissionsConfig(
-    val grpcTarget: String,
+    val service: PermissionServiceConfig,
     val context: PermissionSnapshotContext,
     val refreshIntervalSeconds: Long,
 ) {
@@ -195,12 +181,16 @@ data class MinestomPermissionsConfig(
         fun fromEnvironment(
             environment: Map<String, String>,
             fallbackServerType: String,
-        ): MinestomPermissionsConfig {
-            val target =
-                environment["PERMISSIONS_GRPC_TARGET"]?.takeIf { it.isNotBlank() }
-                    ?: error("Missing required environment variable PERMISSIONS_GRPC_TARGET")
+        ): MinestomPermissionsConfig? {
+            val serviceUrl = environment["PERMISSIONS_SERVICE_URL"]?.takeIf { it.isNotBlank() }
+            val tokenFile = environment["PERMISSIONS_TOKEN_FILE"]?.takeIf { it.isNotBlank() }
+            if (serviceUrl == null && tokenFile == null) return null
+            val requiredServiceUrl =
+                serviceUrl ?: error("Missing required environment variable PERMISSIONS_SERVICE_URL")
+            val requiredTokenFile =
+                tokenFile ?: error("Missing required environment variable PERMISSIONS_TOKEN_FILE")
             return MinestomPermissionsConfig(
-                grpcTarget = target,
+                service = PermissionServiceConfig.parse(requiredServiceUrl, requiredTokenFile),
                 context =
                     PermissionSnapshotContext(
                         serverType =

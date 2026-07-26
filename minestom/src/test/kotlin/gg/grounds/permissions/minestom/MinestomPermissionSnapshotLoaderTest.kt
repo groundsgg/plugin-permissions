@@ -2,9 +2,13 @@ package gg.grounds.permissions.minestom
 
 import gg.grounds.permissions.InMemoryPermissionSnapshots
 import gg.grounds.permissions.PermissionSnapshot
-import java.time.Clock
+import gg.grounds.permissions.catalog.PermissionManifest
+import gg.grounds.permissions.client.PermissionManifestRegistrationResult
+import gg.grounds.permissions.client.PermissionRuntimeClient
+import gg.grounds.permissions.client.PermissionSnapshotContext
+import gg.grounds.permissions.client.SnapshotFailureReason
+import gg.grounds.permissions.client.SnapshotUnavailableException
 import java.time.Instant
-import java.time.ZoneOffset
 import java.util.UUID
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -18,13 +22,9 @@ class MinestomPermissionSnapshotLoaderTest {
         val playerId = UUID.randomUUID()
         val snapshot = snapshot(playerId)
         val snapshots = InMemoryPermissionSnapshots()
-        val loader =
-            loader(
-                snapshots = snapshots,
-                client = FakeClient(PermissionSnapshotFetchResult.Success(snapshot)),
-            )
+        val loader = loader(snapshots = snapshots, client = FakeClient { snapshot })
 
-        val result = loader.loadSnapshot(playerId, "Alex")
+        val result = loader.loadSnapshot(playerId)
 
         assertTrue(result.allowed)
         assertEquals(snapshot, result.snapshot)
@@ -32,45 +32,17 @@ class MinestomPermissionSnapshotLoaderTest {
     }
 
     @Test
-    fun `backend failure with valid memory cache allows login`() {
+    fun `runtime client failure without a valid common cache denies login`() {
         val playerId = UUID.randomUUID()
-        val snapshot = snapshot(playerId)
-        val snapshots = InMemoryPermissionSnapshots(mapOf(playerId to snapshot))
         val loader =
             loader(
-                snapshots = snapshots,
-                client = FakeClient(PermissionSnapshotFetchResult.Unavailable("unavailable")),
+                client =
+                    FakeClient {
+                        throw SnapshotUnavailableException(SnapshotFailureReason.UNAVAILABLE)
+                    }
             )
 
-        val result = loader.loadSnapshot(playerId, "Alex")
-
-        assertTrue(result.allowed)
-        assertEquals(snapshot, result.snapshot)
-    }
-
-    @Test
-    fun `backend failure without cache denies login`() {
-        val playerId = UUID.randomUUID()
-        val loader =
-            loader(client = FakeClient(PermissionSnapshotFetchResult.Unavailable("unavailable")))
-
-        val result = loader.loadSnapshot(playerId, "Alex")
-
-        assertFalse(result.allowed)
-    }
-
-    @Test
-    fun `backend failure with expired cache denies login`() {
-        val playerId = UUID.randomUUID()
-        val snapshots =
-            InMemoryPermissionSnapshots(mapOf(playerId to snapshot(playerId, NOW.minusSeconds(1))))
-        val loader =
-            loader(
-                snapshots = snapshots,
-                client = FakeClient(PermissionSnapshotFetchResult.Unavailable("unavailable")),
-            )
-
-        val result = loader.loadSnapshot(playerId, "Alex")
+        val result = loader.loadSnapshot(playerId)
 
         assertFalse(result.allowed)
     }
@@ -78,18 +50,18 @@ class MinestomPermissionSnapshotLoaderTest {
     @Test
     fun `passes configured context to snapshot client`() {
         val playerId = UUID.randomUUID()
-        val client = FakeClient(PermissionSnapshotFetchResult.Success(snapshot(playerId)))
+        val client = FakeClient { snapshot(playerId) }
         val context = PermissionSnapshotContext(serverType = "arena", serverId = "arena-1")
         val loader = loader(client = client, context = context)
 
-        loader.loadSnapshot(playerId, "Alex")
+        loader.loadSnapshot(playerId)
 
         assertSame(context, client.lastContext)
     }
 
     private fun loader(
         snapshots: InMemoryPermissionSnapshots = InMemoryPermissionSnapshots(),
-        client: PermissionSnapshotClient,
+        client: PermissionRuntimeClient,
         context: PermissionSnapshotContext = PermissionSnapshotContext(serverType = "arena"),
     ): MinestomPermissionSnapshotLoader =
         MinestomPermissionSnapshotLoader(
@@ -97,7 +69,6 @@ class MinestomPermissionSnapshotLoaderTest {
             snapshots = snapshots,
             client = client,
             context = context,
-            clock = Clock.fixed(NOW, ZoneOffset.UTC),
         )
 
     private fun snapshot(
@@ -121,15 +92,21 @@ class MinestomPermissionSnapshotLoaderTest {
     }
 }
 
-private class FakeClient(private val result: PermissionSnapshotFetchResult) :
-    PermissionSnapshotClient {
+private class FakeClient(private val fetch: () -> PermissionSnapshot) : PermissionRuntimeClient {
     var lastContext: PermissionSnapshotContext? = null
 
     override fun fetchSnapshot(
         playerId: UUID,
         context: PermissionSnapshotContext,
-    ): PermissionSnapshotFetchResult {
+    ): PermissionSnapshot {
         lastContext = context
-        return result
+        return fetch()
     }
+
+    override fun registerManifest(
+        manifest: PermissionManifest,
+        sourceVersion: String,
+        context: PermissionSnapshotContext,
+    ): PermissionManifestRegistrationResult =
+        error("Manifest registration is not used by this test")
 }

@@ -15,12 +15,8 @@ dependencies {
 
     api("gg.grounds:grounds-minestom-runtime-runtime-api:0.4.0")
     implementation(project(":common"))
-    implementation("io.grpc:grpc-netty-shaded:1.79.0")
-    implementation("io.grpc:grpc-stub")
     implementation("org.slf4j:slf4j-api")
 
     testImplementation("org.junit.jupiter:junit-jupiter")
-    testImplementation(testFixtures(project(":common")))
-    testImplementation("io.grpc:grpc-inprocess:1.82.0")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
