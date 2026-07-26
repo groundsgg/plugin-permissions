@@ -7,7 +7,6 @@ import com.velocitypowered.api.event.permission.PermissionsSetupEvent
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent
 import com.velocitypowered.api.plugin.Plugin
-import com.velocitypowered.api.plugin.annotation.DataDirectory
 import com.velocitypowered.api.proxy.ProxyServer
 import com.velocitypowered.api.scheduler.ScheduledTask
 import gg.grounds.BuildInfo
@@ -18,11 +17,12 @@ import gg.grounds.permissions.Permissions
 import gg.grounds.permissions.SnapshotPermissions
 import gg.grounds.permissions.catalog.PermissionManifest
 import gg.grounds.permissions.catalog.PermissionManifestCollector
-import io.grpc.LoadBalancerRegistry
-import io.grpc.NameResolverRegistry
-import io.grpc.internal.DnsNameResolverProvider
-import io.grpc.internal.PickFirstLoadBalancerProvider
-import java.nio.file.Path
+import gg.grounds.permissions.client.HttpPermissionRuntimeClient
+import gg.grounds.permissions.client.ManifestRegistrationScheduler
+import gg.grounds.permissions.client.PermissionRuntimeStatus
+import gg.grounds.permissions.client.PermissionServiceConfig
+import gg.grounds.permissions.client.PermissionSnapshotContext
+import gg.grounds.permissions.client.SnapshotUnavailableException
 import java.util.concurrent.TimeUnit
 import org.slf4j.Logger
 
@@ -36,38 +36,42 @@ import org.slf4j.Logger
 )
 class GroundsPermissionsPlugin
 @Inject
-constructor(
-    private val proxy: ProxyServer,
-    private val logger: Logger,
-    @param:DataDirectory private val dataDirectory: Path,
-) {
-    private var client: PermissionSnapshotClient? = null
-    private var catalogClient: PermissionCatalogClient? = null
+constructor(private val proxy: ProxyServer, private val logger: Logger) {
+    private var manifestScheduler: ManifestRegistrationScheduler? = null
     private var commandMeta: CommandMeta? = null
     private var refreshTask: ScheduledTask? = null
     private var permissions: Permissions? = null
 
     init {
-        logger.info("Initialized plugin (plugin=plugin-permissions, version={})", BuildInfo.VERSION)
+        logger.info(
+            "Permissions plugin initialized successfully (plugin=plugin-permissions, version={})",
+            BuildInfo.VERSION,
+        )
     }
 
     @Subscribe
     fun onInitialize(event: ProxyInitializeEvent) {
-        registerProviders()
-
-        val config = VelocityPermissionsConfig.fromEnvironment(System.getenv())
-        val snapshotClient = GrpcPermissionSnapshotClient.create(config.grpcTarget)
-        val manifestClient = GrpcPermissionCatalogClient.create(config.grpcTarget)
-        client = snapshotClient
-        catalogClient = manifestClient
+        val config =
+            VelocityPermissionsConfig.fromEnvironment(System.getenv())
+                ?: run {
+                    logger.info(
+                        "Permissions plugin disabled (plugin=plugin-permissions, reason=not_configured)"
+                    )
+                    return
+                }
+        val runtimeStatus = PermissionRuntimeStatus()
+        val runtimeClient =
+            HttpPermissionRuntimeClient(config = config.service, status = runtimeStatus)
+        val manifestScheduler =
+            ManifestRegistrationScheduler(client = runtimeClient, status = runtimeStatus)
+        this.manifestScheduler = manifestScheduler
 
         val snapshots = InMemoryPermissionSnapshots()
         val listener =
             PermissionLoginListener(
                 logger = logger,
                 snapshots = snapshots,
-                cache = SnapshotDiskCache(logger, dataDirectory.resolve("snapshots")),
-                client = snapshotClient,
+                client = runtimeClient,
                 context = config.context,
             )
         proxy.eventManager.register(this, listener)
@@ -77,12 +81,19 @@ constructor(
                 snapshots = snapshots,
                 onlinePlayerIds = { proxy.allPlayers.map { it.uniqueId }.toSet() },
                 fetchSnapshot = { playerId ->
-                    when (val fetch = snapshotClient.fetchSnapshot(playerId, config.context)) {
-                        is PermissionSnapshotFetchResult.Success -> {
-                            listener.activateSnapshot(fetch.snapshot)
-                            fetch.snapshot
-                        }
-                        is PermissionSnapshotFetchResult.Unavailable -> null
+                    try {
+                        runtimeClient
+                            .fetchSnapshot(playerId, config.context)
+                            .also(listener::activateSnapshot)
+                    } catch (exception: SnapshotUnavailableException) {
+                        null
+                    } catch (exception: RuntimeException) {
+                        logger.error(
+                            "Permission snapshot refresh failed (playerId={}, exceptionType={})",
+                            playerId,
+                            exception::class.java.name,
+                        )
+                        null
                     }
                 },
             )
@@ -94,7 +105,12 @@ constructor(
                         try {
                             refreshSweep.run()
                         } catch (exception: RuntimeException) {
-                            logger.warn("Permission snapshot refresh sweep failed", exception)
+                            logger.error(
+                                "Permission snapshot refresh sweep failed (serverType={}, serverId={}, exceptionType={})",
+                                config.context.serverType ?: "none",
+                                config.context.serverId ?: "none",
+                                exception::class.java.name,
+                            )
                         }
                     },
                 )
@@ -111,12 +127,13 @@ constructor(
                         PermissionCommandService(
                             snapshots = snapshots,
                             permissions = permissions,
-                            refreshSnapshot = listener::loadSnapshot,
+                            refreshSnapshot = { playerId, _ -> listener.loadSnapshot(playerId) },
                             status =
                                 PermissionCommandStatus(
                                     version = BuildInfo.VERSION,
-                                    grpcTarget = config.grpcTarget,
+                                    serviceUrl = config.service.serviceUri,
                                     context = config.context,
+                                    runtimeStatus = runtimeStatus::snapshot,
                                 ),
                         ),
                     findOnlinePlayer = { identifier ->
@@ -149,19 +166,17 @@ constructor(
             this.commandMeta = commandMeta
 
             logger.info(
-                "Registered permissions commands successfully (root=permissions, alias=perm)"
+                "Permissions commands registered successfully (root=permissions, alias=perm)"
             )
         }
 
-        proxy.scheduler
-            .buildTask(this, Runnable { registerActivePermissionManifests(manifestClient, config) })
-            .schedule()
+        registerActivePermissionManifests(manifestScheduler, config)
 
         logger.info(
-            "Configured permissions snapshot client (target={}, serverType={}, serverId={})",
-            config.grpcTarget,
-            config.context.serverType,
-            config.context.serverId,
+            "Permissions plugin configured successfully (serviceUrl={}, serverType={}, serverId={})",
+            config.service.serviceUri,
+            config.context.serverType ?: "none",
+            config.context.serverId ?: "none",
         )
     }
 
@@ -176,16 +191,9 @@ constructor(
         commandMeta = null
         refreshTask?.cancel()
         refreshTask = null
-        client?.close()
-        client = null
-        catalogClient?.close()
-        catalogClient = null
+        manifestScheduler?.close()
+        manifestScheduler = null
         permissions = null
-    }
-
-    private fun registerProviders() {
-        NameResolverRegistry.getDefaultRegistry().register(DnsNameResolverProvider())
-        LoadBalancerRegistry.getDefaultRegistry().register(PickFirstLoadBalancerProvider())
     }
 
     private fun loadCommandPermissions(): PermissionCommandPermissions? =
@@ -195,14 +203,14 @@ constructor(
             )
         } catch (exception: IllegalArgumentException) {
             logger.warn(
-                "Skipped permissions command registration (originId=plugin-permissions, reason={})",
+                "Permissions command registration skipped (originId=plugin-permissions, reason={})",
                 exception.message ?: exception::class.java.simpleName,
             )
             null
         }
 
     private fun registerActivePermissionManifests(
-        manifestClient: PermissionCatalogClient,
+        manifestScheduler: ManifestRegistrationScheduler,
         config: VelocityPermissionsConfig,
     ) {
         val collection =
@@ -210,48 +218,38 @@ constructor(
                 .collect(discoverPermissionManifestOrigins(proxy.pluginManager.plugins))
         collection.failures.forEach { failure ->
             logger.warn(
-                "Skipped malformed permission manifest (originId={}, originVersion={}, reason={})",
+                "Permission manifest skipped (originId={}, originVersion={}, reason={})",
                 failure.origin.id,
                 failure.origin.version,
                 failure.reason,
             )
         }
-        val registration =
-            PermissionManifestRegistrar(manifestClient, config.context)
-                .register(collection.manifests)
-        registration.registered.forEach { collected ->
-            logger.info(
-                "Registered permission catalog manifest successfully (originId={}, source={}, version={}, permissionCount={})",
-                collected.origin.id,
-                collected.manifest.source,
-                collected.origin.version,
-                collected.manifest.permissions.size,
-            )
-        }
-        registration.failures.forEach { failure ->
-            logger.warn(
-                "Failed to register permission catalog manifest (originId={}, source={}, attempts={}, reason={})",
-                failure.collected.origin.id,
-                failure.collected.manifest.source,
-                failure.attempts,
-                failure.reason,
+        collection.manifests.forEach { collected ->
+            manifestScheduler.register(
+                manifest = collected.manifest,
+                sourceVersion = collected.origin.version,
+                context = config.context,
             )
         }
     }
 }
 
 data class VelocityPermissionsConfig(
-    val grpcTarget: String,
+    val service: PermissionServiceConfig,
     val context: PermissionSnapshotContext,
     val refreshIntervalSeconds: Long,
 ) {
     companion object {
-        fun fromEnvironment(environment: Map<String, String>): VelocityPermissionsConfig {
-            val target =
-                environment["PERMISSIONS_GRPC_TARGET"]?.takeIf { it.isNotBlank() }
-                    ?: error("Missing required environment variable PERMISSIONS_GRPC_TARGET")
+        fun fromEnvironment(environment: Map<String, String>): VelocityPermissionsConfig? {
+            val serviceUrl = environment["PERMISSIONS_SERVICE_URL"]?.takeIf { it.isNotBlank() }
+            val tokenFile = environment["PERMISSIONS_TOKEN_FILE"]?.takeIf { it.isNotBlank() }
+            if (serviceUrl == null && tokenFile == null) return null
+            val requiredServiceUrl =
+                serviceUrl ?: error("Missing required environment variable PERMISSIONS_SERVICE_URL")
+            val requiredTokenFile =
+                tokenFile ?: error("Missing required environment variable PERMISSIONS_TOKEN_FILE")
             return VelocityPermissionsConfig(
-                grpcTarget = target,
+                service = PermissionServiceConfig.parse(requiredServiceUrl, requiredTokenFile),
                 context =
                     PermissionSnapshotContext(
                         serverType =

@@ -3,6 +3,9 @@ package gg.grounds.permissions.velocity
 import gg.grounds.permissions.InMemoryPermissionSnapshots
 import gg.grounds.permissions.PermissionCheckScope
 import gg.grounds.permissions.Permissions
+import gg.grounds.permissions.client.PermissionRuntimeStatusSnapshot
+import gg.grounds.permissions.client.PermissionSnapshotContext
+import java.net.URI
 import java.util.UUID
 
 class PermissionCommandService(
@@ -11,15 +14,29 @@ class PermissionCommandService(
     private val refreshSnapshot: (UUID, String) -> PermissionLoginResult,
     private val status: PermissionCommandStatus,
 ) {
-    fun status(): PermissionCommandResult =
-        PermissionCommandResult.Success(
+    fun status(): PermissionCommandResult {
+        val runtime = status.runtimeStatus()
+        val lastFailure = runtime.lastTerminalManifestFailure
+        return PermissionCommandResult.Success(
             listOf(
                 "version=${status.version}",
-                "target=${status.grpcTarget}",
+                "serviceUrl=${status.serviceUrl}",
                 "serverType=${status.context.serverType ?: "none"}",
                 "serverId=${status.context.serverId ?: "none"}",
+                "snapshotSuccesses=${runtime.snapshotSuccesses}",
+                "snapshotFailures=${runtime.snapshotFailures}",
+                "validCacheFallbacks=${runtime.validCacheFallbacks}",
+                "failClosedDecisions=${runtime.failClosedDecisions}",
+                "manifestRetries=${runtime.manifestRetries}",
+                "lastManifestSuccessAt=${runtime.lastManifestSuccessAt ?: "none"}",
+                "terminalManifestFailures=${runtime.terminalManifestFailures}",
+                "lastManifestFailureSource=${lastFailure?.source ?: "none"}",
+                "lastManifestFailureStatus=${lastFailure?.statusCode ?: "none"}",
+                "lastManifestFailureRequestId=${lastFailure?.requestId ?: "none"}",
+                "lastManifestFailureAt=${lastFailure?.failedAt ?: "none"}",
             )
         )
+    }
 
     fun info(playerId: UUID): PermissionCommandResult {
         val snapshot = snapshots.get(playerId) ?: return noSnapshot()
@@ -65,8 +82,9 @@ class PermissionCommandService(
 
 data class PermissionCommandStatus(
     val version: String,
-    val grpcTarget: String,
+    val serviceUrl: URI,
     val context: PermissionSnapshotContext,
+    val runtimeStatus: () -> PermissionRuntimeStatusSnapshot,
 )
 
 sealed interface PermissionCommandResult {
