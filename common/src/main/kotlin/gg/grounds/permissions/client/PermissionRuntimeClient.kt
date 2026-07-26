@@ -17,5 +17,15 @@ interface PermissionRuntimeClient {
 sealed interface PermissionManifestRegistrationResult {
     data object Accepted : PermissionManifestRegistrationResult
 
-    data class Unavailable(val reason: String) : PermissionManifestRegistrationResult
+    data class RetryableFailure(
+        val reason: String,
+        val statusCode: Int? = null,
+        val requestId: String? = null,
+    ) : PermissionManifestRegistrationResult
+
+    data class TerminalFailure(
+        val reason: String,
+        val statusCode: Int? = null,
+        val requestId: String? = null,
+    ) : PermissionManifestRegistrationResult
 }

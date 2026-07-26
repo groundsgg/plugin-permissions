@@ -8,6 +8,9 @@ import gg.grounds.permissions.PermissionGrantSource
 import gg.grounds.permissions.PermissionScope
 import gg.grounds.permissions.PermissionSnapshot
 import gg.grounds.permissions.RoleMetadata
+import gg.grounds.permissions.catalog.PermissionManifest
+import gg.grounds.permissions.catalog.PermissionManifestEntry
+import gg.grounds.permissions.catalog.PermissionManifestScope
 import java.net.InetSocketAddress
 import java.net.URI
 import java.time.Clock
@@ -22,9 +25,11 @@ import java.util.concurrent.atomic.AtomicInteger
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import tools.jackson.databind.json.JsonMapper
 
 class HttpPermissionRuntimeClientTest {
     private lateinit var server: HttpServer
@@ -227,6 +232,108 @@ class HttpPermissionRuntimeClientTest {
         }
     }
 
+    @Test
+    fun `maps a manifest registration with its source only in the encoded path`() {
+        responder = { exchange ->
+            respond(exchange, 204, headers = mapOf("X-Request-ID" to "server-request"))
+        }
+
+        val result =
+            client()
+                .registerManifest(
+                    manifest = manifest(source = "plugin/chat staff"),
+                    sourceVersion = "1.4.0",
+                    context =
+                        PermissionSnapshotContext(
+                            serverType = "velocity",
+                            serverId = "proxy-1",
+                            environment = "stage",
+                        ),
+                )
+
+        assertEquals(PermissionManifestRegistrationResult.Accepted, result)
+        val request = requests.single()
+        assertEquals("PUT", request.method)
+        assertEquals(
+            "/base/v1/permissions/runtime/catalog/manifests/plugin%2Fchat%20staff",
+            request.rawPath,
+        )
+        assertEquals(null, request.rawQuery)
+        assertEquals("Bearer projected-token", request.authorization)
+        assertEquals("application/json", request.contentType)
+        assertEquals("client-request-123", request.requestId)
+
+        val body = JsonMapper.builder().build().readTree(request.body)
+        assertFalse(body.has("source"))
+        assertEquals("1.4.0", body.path("sourceVersion").asString())
+        assertEquals("velocity", body.path("serverType").asString())
+        assertEquals("proxy-1", body.path("serverId").asString())
+        assertEquals("grounds.chat.staff", body.path("permissions").path(0).path("key").asString())
+        assertEquals(
+            listOf("GLOBAL", "SERVER_TYPE"),
+            body.path("permissions").path(0).path("supportedScopes").values().map { it.asString() },
+        )
+    }
+
+    @Test
+    fun `classifies retryable and terminal manifest responses without exposing bodies`() {
+        listOf(429, 500).forEach { responseStatus ->
+            responder = { exchange ->
+                respond(
+                    exchange,
+                    responseStatus,
+                    "secret-response-body",
+                    mapOf("X-Request-ID" to "server-$responseStatus"),
+                )
+            }
+
+            val result =
+                client()
+                    .registerManifest(manifest("plugin-chat"), "1.4.0", PermissionSnapshotContext())
+
+            val failure =
+                assertInstanceOf(
+                    PermissionManifestRegistrationResult.RetryableFailure::class.java,
+                    result,
+                )
+            assertEquals(responseStatus, failure.statusCode)
+            assertEquals("server-$responseStatus", failure.requestId)
+            assertFalse(failure.reason.contains("secret-response-body"))
+        }
+
+        listOf(400, 401, 403, 409).forEach { responseStatus ->
+            responder = { exchange -> respond(exchange, responseStatus, "secret-response-body") }
+
+            val result =
+                client()
+                    .registerManifest(manifest("plugin-chat"), "1.4.0", PermissionSnapshotContext())
+
+            val failure =
+                assertInstanceOf(
+                    PermissionManifestRegistrationResult.TerminalFailure::class.java,
+                    result,
+                )
+            assertEquals(responseStatus, failure.statusCode)
+            assertFalse(failure.reason.contains("secret-response-body"))
+        }
+    }
+
+    @Test
+    fun `classifies a manifest connection failure as retryable`() {
+        server.stop(0)
+
+        val result =
+            client().registerManifest(manifest("plugin-chat"), "1.4.0", PermissionSnapshotContext())
+
+        val failure =
+            assertInstanceOf(
+                PermissionManifestRegistrationResult.RetryableFailure::class.java,
+                result,
+            )
+        assertEquals("transport_error", failure.reason)
+        assertEquals(null, failure.statusCode)
+    }
+
     private fun client(
         cache: SnapshotCache = SnapshotCache(),
         requestTimeout: Duration = Duration.ofSeconds(2),
@@ -284,6 +391,24 @@ class HttpPermissionRuntimeClientTest {
                 ),
         )
 
+    private fun manifest(source: String): PermissionManifest =
+        PermissionManifest(
+            source = source,
+            permissions =
+                listOf(
+                    PermissionManifestEntry(
+                        key = "grounds.chat.staff",
+                        label = "Staff chat",
+                        description = "Allows access to staff chat.",
+                        supportedScopes =
+                            listOf(
+                                PermissionManifestScope.GLOBAL,
+                                PermissionManifestScope.SERVER_TYPE,
+                            ),
+                    )
+                ),
+        )
+
     private fun HttpExchange.recorded(): RecordedRequest =
         RecordedRequest(
             method = requestMethod,
@@ -291,7 +416,9 @@ class HttpPermissionRuntimeClientTest {
             rawQuery = requestURI.rawQuery,
             authorization = requestHeaders.getFirst("Authorization"),
             accept = requestHeaders.getFirst("Accept"),
+            contentType = requestHeaders.getFirst("Content-Type"),
             requestId = requestHeaders.getFirst("X-Request-ID"),
+            body = requestBody.bufferedReader().use { it.readText() },
         )
 
     private fun respond(
@@ -302,8 +429,13 @@ class HttpPermissionRuntimeClientTest {
     ) {
         headers.forEach(exchange.responseHeaders::add)
         val bytes = body.toByteArray()
-        exchange.sendResponseHeaders(status, bytes.size.toLong())
-        exchange.responseBody.use { it.write(bytes) }
+        if (status == 204) {
+            exchange.sendResponseHeaders(status, -1)
+            exchange.close()
+        } else {
+            exchange.sendResponseHeaders(status, bytes.size.toLong())
+            exchange.responseBody.use { it.write(bytes) }
+        }
     }
 
     private data class RecordedRequest(
@@ -312,7 +444,9 @@ class HttpPermissionRuntimeClientTest {
         val rawQuery: String?,
         val authorization: String?,
         val accept: String?,
+        val contentType: String? = null,
         val requestId: String?,
+        val body: String = "",
     )
 
     private companion object {

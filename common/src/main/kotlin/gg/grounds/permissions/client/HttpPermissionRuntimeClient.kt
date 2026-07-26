@@ -110,8 +110,75 @@ class HttpPermissionRuntimeClient(
         manifest: PermissionManifest,
         sourceVersion: String,
         context: PermissionSnapshotContext,
-    ): PermissionManifestRegistrationResult =
-        PermissionManifestRegistrationResult.Unavailable("not_implemented")
+    ): PermissionManifestRegistrationResult {
+        require(sourceVersion.isNotBlank()) {
+            "Permission manifest sourceVersion must not be blank"
+        }
+        val requestId = requestIdSupplier()
+        val token =
+            try {
+                tokenProvider.readToken()
+            } catch (exception: IllegalStateException) {
+                return PermissionManifestRegistrationResult.RetryableFailure(
+                    reason = "token_unavailable",
+                    requestId = requestId,
+                )
+            }
+        val body = mapper.writeValueAsString(manifest.toRuntimeRequest(sourceVersion, context))
+        val request =
+            try {
+                HttpRequest.newBuilder(manifestUri(manifest.source))
+                    .timeout(requestTimeout)
+                    .header("Authorization", "Bearer $token")
+                    .header("Accept", "application/json")
+                    .header("Content-Type", "application/json")
+                    .header("X-Request-ID", requestId)
+                    .PUT(HttpRequest.BodyPublishers.ofString(body))
+                    .build()
+            } catch (exception: IllegalArgumentException) {
+                return PermissionManifestRegistrationResult.TerminalFailure(
+                    reason = "invalid_request",
+                    requestId = requestId,
+                )
+            }
+        val response =
+            try {
+                httpClient.send(request, HttpResponse.BodyHandlers.discarding())
+            } catch (exception: IOException) {
+                return PermissionManifestRegistrationResult.RetryableFailure(
+                    reason = "transport_error",
+                    requestId = requestId,
+                )
+            } catch (exception: InterruptedException) {
+                Thread.currentThread().interrupt()
+                return PermissionManifestRegistrationResult.RetryableFailure(
+                    reason = "interrupted",
+                    requestId = requestId,
+                )
+            }
+        val responseRequestId = response.headers().firstValue("X-Request-ID").orElse(requestId)
+        return when (response.statusCode()) {
+            204 -> PermissionManifestRegistrationResult.Accepted
+            429 ->
+                PermissionManifestRegistrationResult.RetryableFailure(
+                    reason = "http_429",
+                    statusCode = response.statusCode(),
+                    requestId = responseRequestId,
+                )
+            in 500..599 ->
+                PermissionManifestRegistrationResult.RetryableFailure(
+                    reason = "http_${response.statusCode()}",
+                    statusCode = response.statusCode(),
+                    requestId = responseRequestId,
+                )
+            else ->
+                PermissionManifestRegistrationResult.TerminalFailure(
+                    reason = "http_${response.statusCode()}",
+                    statusCode = response.statusCode(),
+                    requestId = responseRequestId,
+                )
+        }
+    }
 
     private fun decodeOrFallback(
         playerId: UUID,
@@ -173,6 +240,11 @@ class HttpPermissionRuntimeClient(
             "${config.serviceUri.toString().trimEnd('/')}/v1/permissions/runtime/players/$playerId/snapshot"
         return URI.create(if (query.isEmpty()) endpoint else "$endpoint?$query")
     }
+
+    private fun manifestUri(source: String): URI =
+        URI.create(
+            "${config.serviceUri.toString().trimEnd('/')}/v1/permissions/runtime/catalog/manifests/${encode(source)}"
+        )
 
     private fun encode(value: String): String =
         URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20")

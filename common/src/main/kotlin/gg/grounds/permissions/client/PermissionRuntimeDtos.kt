@@ -7,6 +7,7 @@ import gg.grounds.permissions.PermissionScope
 import gg.grounds.permissions.PermissionScopeKind
 import gg.grounds.permissions.PermissionSnapshot
 import gg.grounds.permissions.RoleMetadata
+import gg.grounds.permissions.catalog.PermissionManifest
 import java.time.Instant
 import java.util.UUID
 
@@ -88,3 +89,36 @@ internal data class RuntimeRoleMetadataDto(
 private fun required(value: String?, field: String): String =
     requireNotNull(value) { "$field is required" }
         .also { require(it.isNotBlank()) { "$field must not be blank" } }
+
+internal data class RuntimeManifestRequestDto(
+    val sourceVersion: String,
+    val serverType: String?,
+    val serverId: String?,
+    val permissions: List<RuntimeManifestPermissionDto>,
+)
+
+internal data class RuntimeManifestPermissionDto(
+    val key: String,
+    val label: String,
+    val description: String,
+    val supportedScopes: List<String>,
+)
+
+internal fun PermissionManifest.toRuntimeRequest(
+    sourceVersion: String,
+    context: PermissionSnapshotContext,
+): RuntimeManifestRequestDto =
+    RuntimeManifestRequestDto(
+        sourceVersion = sourceVersion,
+        serverType = context.serverType,
+        serverId = context.serverId,
+        permissions =
+            permissions.map { permission ->
+                RuntimeManifestPermissionDto(
+                    key = permission.key,
+                    label = permission.label,
+                    description = permission.description,
+                    supportedScopes = permission.supportedScopes.map { it.name },
+                )
+            },
+    )
