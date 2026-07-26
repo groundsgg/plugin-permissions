@@ -77,12 +77,14 @@ class HttpPermissionRuntimeClient(
                     response.statusCode(),
                     responseRequestId,
                 )
-            404 ->
+            404 -> {
+                cache.remove(playerId)
                 failClosed(
                     SnapshotFailureReason.NOT_FOUND,
                     response.statusCode(),
                     responseRequestId,
                 )
+            }
             429 ->
                 fallbackOrThrow(
                     playerId,
@@ -190,7 +192,7 @@ class HttpPermissionRuntimeClient(
                 .readValue(responseBody, RuntimePermissionSnapshotDto::class.java)
                 .toDomain(playerId)
                 .also {
-                    cache.put(it)
+                    cache.put(it, clock.instant())
                     status.recordSnapshotSuccess()
                 }
         } catch (exception: Exception) {

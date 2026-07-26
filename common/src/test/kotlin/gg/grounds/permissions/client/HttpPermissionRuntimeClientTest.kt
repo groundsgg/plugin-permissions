@@ -18,6 +18,7 @@ import java.time.Duration
 import java.time.Instant
 import java.time.ZoneOffset
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -101,7 +102,7 @@ class HttpPermissionRuntimeClientTest {
     @Test
     fun `uses one unexpired cached snapshot after a transient response`() {
         val cached = expectedSnapshot().copy(policyVersion = 3)
-        val cache = SnapshotCache().also { it.put(cached) }
+        val cache = SnapshotCache().also { it.put(cached, NOW) }
         responder = { exchange ->
             respond(exchange, 503, "upstream details", mapOf("X-Request-ID" to "server-request"))
         }
@@ -141,7 +142,7 @@ class HttpPermissionRuntimeClientTest {
 
     @Test
     fun `never uses a cached snapshot for authentication or authorization failures`() {
-        val cache = SnapshotCache().also { it.put(expectedSnapshot()) }
+        val cache = SnapshotCache().also { it.put(expectedSnapshot(), NOW) }
 
         listOf(401 to SnapshotFailureReason.UNAUTHENTICATED, 403 to SnapshotFailureReason.FORBIDDEN)
             .forEach { (responseStatus, expectedReason) ->
@@ -163,7 +164,7 @@ class HttpPermissionRuntimeClientTest {
 
     @Test
     fun `fails closed for missing player state even when a cache entry exists`() {
-        val cache = SnapshotCache().also { it.put(expectedSnapshot()) }
+        val cache = SnapshotCache().also { it.put(expectedSnapshot(), NOW) }
         responder = { exchange -> respond(exchange, 404) }
 
         val error =
@@ -174,12 +175,41 @@ class HttpPermissionRuntimeClientTest {
         assertEquals(SnapshotFailureReason.NOT_FOUND, error.reason)
         assertEquals(0, status.snapshot().validCacheFallbacks)
         assertEquals(1, status.snapshot().failClosedDecisions)
+
+        responder = { exchange -> respond(exchange, 503) }
+        val unavailableError =
+            assertThrows(SnapshotUnavailableException::class.java) {
+                client(cache = cache).fetchSnapshot(playerId, PermissionSnapshotContext())
+            }
+
+        assertEquals(SnapshotFailureReason.UNAVAILABLE, unavailableError.reason)
+        assertEquals(0, status.snapshot().validCacheFallbacks)
+        assertEquals(2, status.snapshot().failClosedDecisions)
+    }
+
+    @Test
+    fun `successful snapshot fetch evicts expired historical cache entries`() {
+        val historicalPlayerId = UUID.fromString("76069bba-4618-4f55-acd4-e43d6c4bde23")
+        val cache =
+            SnapshotCache().also {
+                it.put(
+                    expectedSnapshot()
+                        .copy(playerId = historicalPlayerId, expiresAt = NOW.minusSeconds(1)),
+                    NOW.minusSeconds(2),
+                )
+            }
+        responder = { exchange -> respond(exchange, 200, SNAPSHOT_JSON) }
+
+        client(cache = cache).fetchSnapshot(playerId, PermissionSnapshotContext())
+
+        assertEquals(1, cache.storedEntryCount())
+        assertEquals(playerId, cache.valid(playerId, NOW)?.playerId)
     }
 
     @Test
     fun `uses only a valid cache entry for malformed JSON`() {
         val cached = expectedSnapshot().copy(policyVersion = 2)
-        val cache = SnapshotCache().also { it.put(cached) }
+        val cache = SnapshotCache().also { it.put(cached, NOW) }
         responder = { exchange -> respond(exchange, 200, "{not-json") }
 
         assertEquals(
@@ -193,7 +223,7 @@ class HttpPermissionRuntimeClientTest {
     @Test
     fun `rejects a response for a different player and falls back to a valid cache entry`() {
         val cached = expectedSnapshot().copy(policyVersion = 2)
-        val cache = SnapshotCache().also { it.put(cached) }
+        val cache = SnapshotCache().also { it.put(cached, NOW) }
         responder = { exchange ->
             respond(
                 exchange,
@@ -347,7 +377,7 @@ class HttpPermissionRuntimeClientTest {
             tokenProvider = WorkloadTokenProvider { "projected-token" },
             cache = cache,
             status = status,
-            clock = Clock.fixed(NOW, ZoneOffset.UTC),
+            clock = TEST_CLOCK,
             requestTimeout = requestTimeout,
             requestIdSupplier = { "client-request-123" },
         )
@@ -438,6 +468,12 @@ class HttpPermissionRuntimeClientTest {
         }
     }
 
+    private fun SnapshotCache.storedEntryCount(): Int {
+        val snapshotsField = SnapshotCache::class.java.getDeclaredField("snapshots")
+        snapshotsField.isAccessible = true
+        return (snapshotsField.get(this) as ConcurrentHashMap<*, *>).size
+    }
+
     private data class RecordedRequest(
         val method: String,
         val rawPath: String,
@@ -451,6 +487,7 @@ class HttpPermissionRuntimeClientTest {
 
     private companion object {
         val NOW: Instant = Instant.parse("2026-07-26T18:00:00Z")
+        val TEST_CLOCK: Clock = Clock.fixed(NOW, ZoneOffset.UTC)
         const val SNAPSHOT_JSON =
             """{"playerId":"c5115183-46e6-4458-b15a-c89643c1a91e","policyVersion":4,"issuedAt":"2026-07-26T17:59:00Z","refreshAfter":"2026-07-26T18:01:00Z","expiresAt":"2026-07-26T18:05:00Z","allowPatterns":[{"effect":"ALLOW","pattern":"grounds.chat.staff","scope":{"kind":"GLOBAL","value":null},"source":"ROLE","expiresAt":null}],"denyPatterns":[{"effect":"DENY","pattern":"grounds.command.stop","scope":{"kind":"SERVER_TYPE","value":"velocity proxy"},"source":"PLAYER","expiresAt":"2026-07-26T18:04:00Z"}],"roleKeys":["staff"],"roleMetadata":[{"key":"staff","name":"Staff","prefix":"[Staff]","color":"#ff0000","sortOrder":10}]}"""
     }

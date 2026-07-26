@@ -17,7 +17,7 @@ class SnapshotCacheTest {
     fun `returns a cached snapshot only while it is unexpired`() {
         val cache = SnapshotCache()
         val snapshot = snapshot(expiresAt = now.plusSeconds(1))
-        cache.put(snapshot)
+        cache.put(snapshot, now)
 
         assertEquals(snapshot, cache.valid(playerId, now))
         assertNull(cache.valid(playerId, snapshot.expiresAt))
@@ -37,7 +37,7 @@ class SnapshotCacheTest {
                     roleMetadata = roleMetadata,
                 )
         val cache = SnapshotCache()
-        cache.put(snapshot)
+        cache.put(snapshot, now)
 
         allowPatterns.clear()
         roleKeys.clear()
