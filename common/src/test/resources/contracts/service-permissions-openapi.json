@@ -1,0 +1,6152 @@
+{
+  "openapi" : "3.1.0",
+  "components" : {
+    "schemas" : {
+      "CatalogEntryRequest" : {
+        "required" : [ "label" ],
+        "description" : "Payload for creating or updating a custom permission catalog entry.",
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : [ "string", "null" ],
+            "description" : "Ignored on update because the permissionKey path parameter is authoritative."
+          },
+          "label" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "\\S"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "source" : {
+            "type" : "string"
+          },
+          "sourceVersion" : {
+            "type" : "string"
+          },
+          "supportedScopes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PermissionScopeKind"
+            },
+            "minItems" : 1
+          }
+        }
+      },
+      "CatalogEntryResponse" : {
+        "description" : "Permission catalog entry exposed to administrators.",
+        "type" : "object",
+        "required" : [ "key", "label", "description", "source", "sourceVersion", "supportedScopes", "custom", "lastSeenAt" ],
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "source" : {
+            "type" : "string"
+          },
+          "sourceVersion" : {
+            "type" : "string"
+          },
+          "supportedScopes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PermissionScopeKind"
+            }
+          },
+          "custom" : {
+            "type" : "boolean"
+          },
+          "lastSeenAt" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/Instant"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        }
+      },
+      "EffectiveGrantResponse" : {
+        "description" : "Effective allow or deny grant and its origin.",
+        "type" : "object",
+        "required" : [ "effect", "permissionPattern", "scopeKind", "scopeValue", "expiresAt", "source", "grantId", "roleKey", "mappingId", "inheritedPath", "editable" ],
+        "properties" : {
+          "effect" : {
+            "$ref" : "#/components/schemas/PermissionEffect"
+          },
+          "permissionPattern" : {
+            "type" : "string"
+          },
+          "scopeKind" : {
+            "$ref" : "#/components/schemas/PermissionScopeKind"
+          },
+          "scopeValue" : {
+            "type" : [ "string", "null" ]
+          },
+          "expiresAt" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/Instant"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "source" : {
+            "$ref" : "#/components/schemas/PermissionGrantOriginKind"
+          },
+          "grantId" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/UUID"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "roleKey" : {
+            "type" : [ "string", "null" ]
+          },
+          "mappingId" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/UUID"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "inheritedPath" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "editable" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "EffectivePermissionResponse" : {
+        "description" : "Complete effective permission evaluation for a player.",
+        "type" : "object",
+        "required" : [ "playerId", "policyVersion", "roleKeys", "allowPatterns", "denyPatterns", "roleAssignments", "refreshAfter", "expiresAt" ],
+        "properties" : {
+          "playerId" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "policyVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "roleKeys" : {
+            "type" : "array",
+            "uniqueItems" : true,
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "allowPatterns" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/EffectiveGrantResponse"
+            }
+          },
+          "denyPatterns" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/EffectiveGrantResponse"
+            }
+          },
+          "roleAssignments" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/EffectiveRoleAssignmentResponse"
+            }
+          },
+          "refreshAfter" : {
+            "$ref" : "#/components/schemas/Instant"
+          },
+          "expiresAt" : {
+            "$ref" : "#/components/schemas/Instant"
+          }
+        }
+      },
+      "EffectiveRoleAssignmentResponse" : {
+        "type" : "object",
+        "description" : "Role assignment that contributed to effective permissions.",
+        "required" : [ "roleKey", "source", "grantId", "mappingId", "inheritedPath", "editable" ],
+        "properties" : {
+          "roleKey" : {
+            "type" : "string"
+          },
+          "source" : {
+            "$ref" : "#/components/schemas/PermissionGrantOriginKind"
+          },
+          "grantId" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/UUID"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "mappingId" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/UUID"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "inheritedPath" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "editable" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "GlobalPermissionSnapshot" : {
+        "description" : "Transferable global permission snapshot. Player-specific grant arrays must be absent or empty.",
+        "type" : "object",
+        "properties" : {
+          "schemaVersion" : {
+            "type" : "integer",
+            "format" : "int32",
+            "const" : 1
+          },
+          "sourceEnvironment" : {
+            "type" : "string",
+            "enum" : [ "project", "stage", "prod" ]
+          },
+          "sourceServiceVersion" : {
+            "type" : "string"
+          },
+          "snapshotId" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "\\S"
+          },
+          "roles" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SyncRole"
+            }
+          },
+          "roleGrants" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SyncRoleGrant"
+            }
+          },
+          "inheritance" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SyncInheritance"
+            }
+          },
+          "catalogEntries" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SyncCatalogEntry"
+            }
+          },
+          "keycloakMappings" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "$ref" : "#/components/schemas/SyncKeycloakMapping"
+            }
+          },
+          "playerGrants" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "$ref" : "#/components/schemas/SyncPlayerGrant"
+            },
+            "maxItems" : 0
+          },
+          "playerRoleGrants" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "$ref" : "#/components/schemas/SyncPlayerGrant"
+            },
+            "maxItems" : 0
+          },
+          "createdAt" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/Instant"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        },
+        "required" : [ "snapshotId", "roles", "roleGrants", "inheritance", "catalogEntries" ]
+      },
+      "GrantRequest" : {
+        "required" : [ "effect", "permissionPattern" ],
+        "description" : "Payload for creating or updating a permission grant. scopeValue must be absent for GLOBAL and is required for all other scopes.",
+        "type" : "object",
+        "properties" : {
+          "effect" : {
+            "$ref" : "#/components/schemas/PermissionEffect"
+          },
+          "permissionPattern" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^(?:\\*|[a-z0-9._-]+|[a-z0-9._-]+\\.\\*)$"
+          },
+          "scopeKind" : {
+            "$ref" : "#/components/schemas/PermissionScopeKind"
+          },
+          "scopeValue" : {
+            "type" : [ "string", "null" ],
+            "minLength" : 1,
+            "pattern" : "\\S",
+            "description" : "Absent for GLOBAL; a nonblank value is required for other scope kinds."
+          },
+          "expiresAt" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/Instant"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        }
+      },
+      "IdentitySyncStatusResponse" : {
+        "description" : "Current player identity synchronization status.",
+        "type" : "object",
+        "required" : [ "status", "startedAt", "completedAt", "lastSuccessAt", "durationMs", "playerCount", "failureReason", "stale" ],
+        "properties" : {
+          "status" : {
+            "type" : "string"
+          },
+          "startedAt" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/Instant"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "completedAt" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/Instant"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "lastSuccessAt" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/Instant"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "durationMs" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64"
+          },
+          "playerCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "failureReason" : {
+            "type" : [ "string", "null" ]
+          },
+          "stale" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "Instant" : {
+        "type" : "string",
+        "format" : "date-time",
+        "examples" : [ "2022-03-10T16:15:50Z" ],
+        "description" : "ISO-8601 timestamp with a UTC offset."
+      },
+      "JsonNode" : {
+        "type" : "object",
+        "properties" : {
+          "empty" : {
+            "type" : "boolean"
+          },
+          "valueNode" : {
+            "type" : "boolean"
+          },
+          "containerNode" : {
+            "type" : "boolean"
+          },
+          "missingNode" : {
+            "type" : "boolean"
+          },
+          "array" : {
+            "type" : "boolean"
+          },
+          "object" : {
+            "type" : "boolean"
+          },
+          "nodeType" : {
+            "$ref" : "#/components/schemas/JsonNodeType"
+          },
+          "pojo" : {
+            "type" : "boolean"
+          },
+          "number" : {
+            "type" : "boolean"
+          },
+          "integralNumber" : {
+            "type" : "boolean"
+          },
+          "floatingPointNumber" : {
+            "type" : "boolean"
+          },
+          "short" : {
+            "type" : "boolean"
+          },
+          "int" : {
+            "type" : "boolean"
+          },
+          "long" : {
+            "type" : "boolean"
+          },
+          "float" : {
+            "type" : "boolean"
+          },
+          "double" : {
+            "type" : "boolean"
+          },
+          "bigDecimal" : {
+            "type" : "boolean"
+          },
+          "bigInteger" : {
+            "type" : "boolean"
+          },
+          "textual" : {
+            "type" : "boolean"
+          },
+          "boolean" : {
+            "type" : "boolean"
+          },
+          "null" : {
+            "type" : "boolean"
+          },
+          "binary" : {
+            "type" : "boolean"
+          }
+        },
+        "description" : "Arbitrary JSON value stored as audit metadata."
+      },
+      "JsonNodeType" : {
+        "type" : "string",
+        "enum" : [ "ARRAY", "BINARY", "BOOLEAN", "MISSING", "NULL", "NUMBER", "OBJECT", "POJO", "STRING" ],
+        "description" : "Category of an arbitrary JSON value."
+      },
+      "KeycloakGroupMappingRequest" : {
+        "required" : [ "keycloakGroup", "roleKey" ],
+        "description" : "Payload for mapping a Keycloak group to a permission role.",
+        "type" : "object",
+        "properties" : {
+          "keycloakGroup" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "\\S"
+          },
+          "roleKey" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^[a-z0-9._-]+$"
+          },
+          "expiresAt" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/Instant"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        }
+      },
+      "KeycloakGroupMappingResponse" : {
+        "description" : "Mapping from a Keycloak group to a permission role.",
+        "type" : "object",
+        "required" : [ "id", "keycloakGroup", "roleKey", "expiresAt" ],
+        "properties" : {
+          "id" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "keycloakGroup" : {
+            "type" : "string"
+          },
+          "roleKey" : {
+            "type" : "string"
+          },
+          "expiresAt" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/Instant"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        }
+      },
+      "PagedResponse" : {
+        "description" : "Paginated result page with total matching records.",
+        "type" : "object",
+        "required" : [ "items", "page", "perPage", "total" ],
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : { }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "perPage" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "PagedResponseCatalogEntryResponse" : {
+        "description" : "Paginated result page with total matching records.",
+        "type" : "object",
+        "required" : [ "items", "page", "perPage", "total" ],
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/CatalogEntryResponse"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "perPage" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "PagedResponseEffectiveGrantResponse" : {
+        "description" : "Paginated result page with total matching records.",
+        "type" : "object",
+        "required" : [ "items", "page", "perPage", "total" ],
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/EffectiveGrantResponse"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "perPage" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "PagedResponseKeycloakGroupMappingResponse" : {
+        "description" : "Paginated result page with total matching records.",
+        "type" : "object",
+        "required" : [ "items", "page", "perPage", "total" ],
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/KeycloakGroupMappingResponse"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "perPage" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "PagedResponsePlayerEffectiveRoleResponse" : {
+        "description" : "Paginated result page with total matching records.",
+        "type" : "object",
+        "required" : [ "items", "page", "perPage", "total" ],
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PlayerEffectiveRoleResponse"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "perPage" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "PagedResponsePlayerGrantResponse" : {
+        "description" : "Paginated result page with total matching records.",
+        "type" : "object",
+        "required" : [ "items", "page", "perPage", "total" ],
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PlayerGrantResponse"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "perPage" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "PagedResponseRoleGrantResponse" : {
+        "description" : "Paginated result page with total matching records.",
+        "type" : "object",
+        "required" : [ "items", "page", "perPage", "total" ],
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RoleGrantResponse"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "perPage" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "PermissionAuditEventResponse" : {
+        "description" : "One immutable permission administration audit event.",
+        "type" : "object",
+        "required" : [ "id", "actorUserId", "action", "target", "metadata", "createdAt" ],
+        "properties" : {
+          "id" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "actorUserId" : {
+            "type" : [ "string", "null" ]
+          },
+          "action" : {
+            "type" : "string"
+          },
+          "target" : {
+            "type" : "string"
+          },
+          "metadata" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          },
+          "createdAt" : {
+            "$ref" : "#/components/schemas/Instant"
+          }
+        }
+      },
+      "PermissionAuditPageResponse" : {
+        "description" : "Paginated permission administration audit events.",
+        "type" : "object",
+        "required" : [ "items", "page", "perPage", "total" ],
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PermissionAuditEventResponse"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "perPage" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "PermissionCheckResponse" : {
+        "description" : "Decision for a single player permission check.",
+        "type" : "object",
+        "required" : [ "playerId", "permission", "allowed", "winningGrant" ],
+        "properties" : {
+          "playerId" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "permission" : {
+            "type" : "string"
+          },
+          "allowed" : {
+            "type" : "boolean"
+          },
+          "winningGrant" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/EffectiveGrantResponse"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        }
+      },
+      "PermissionEffect" : {
+        "description" : "Whether a permission grant allows or denies access.",
+        "type" : "string",
+        "enum" : [ "ALLOW", "DENY" ]
+      },
+      "PermissionGrantOriginKind" : {
+        "description" : "Origin of a role assignment or effective permission grant.",
+        "type" : "string",
+        "enum" : [ "DEFAULT_ROLE", "DIRECT_ROLE", "GROUP_MAPPING", "DIRECT_PERMISSION" ]
+      },
+      "PermissionGrantSource" : {
+        "description" : "Policy source that produced an effective runtime permission grant.",
+        "type" : "string",
+        "enum" : [ "ROLE", "PLAYER" ]
+      },
+      "PermissionProjectSnapshot" : {
+        "description" : "Current project permission state used for environment comparison.",
+        "type" : "object",
+        "required" : [ "roles", "roleGrants", "inheritance", "catalogEntries", "keycloakMappings" ],
+        "properties" : {
+          "roles" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SyncRole"
+            }
+          },
+          "roleGrants" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SyncRoleGrant"
+            }
+          },
+          "inheritance" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SyncInheritance"
+            }
+          },
+          "catalogEntries" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SyncCatalogEntry"
+            }
+          },
+          "keycloakMappings" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SyncKeycloakMapping"
+            }
+          }
+        }
+      },
+      "PermissionScopeDto" : {
+        "description" : "Scope that limits where a runtime permission grant applies.",
+        "type" : "object",
+        "required" : [ "kind", "value" ],
+        "properties" : {
+          "kind" : {
+            "$ref" : "#/components/schemas/PermissionScopeKind"
+          },
+          "value" : {
+            "type" : [ "string", "null" ]
+          }
+        }
+      },
+      "PermissionScopeKind" : {
+        "description" : "Scope dimension in which a permission grant applies.",
+        "type" : "string",
+        "enum" : [ "GLOBAL", "ENVIRONMENT", "SERVER_TYPE", "SERVER" ]
+      },
+      "PermissionSyncAction" : {
+        "description" : "Selected resolution for one environment-sync entity change.",
+        "type" : "object",
+        "required" : [ "entityType", "technicalKey", "action" ],
+        "properties" : {
+          "entityType" : {
+            "$ref" : "#/components/schemas/SyncEntityType"
+          },
+          "technicalKey" : {
+            "type" : "string"
+          },
+          "action" : {
+            "$ref" : "#/components/schemas/SyncAction"
+          }
+        }
+      },
+      "PermissionSyncDiff" : {
+        "description" : "Calculated differences between project and global permission state.",
+        "type" : "object",
+        "required" : [ "changes", "projectOnlyEntries" ],
+        "properties" : {
+          "changes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SyncChange"
+            }
+          },
+          "projectOnlyEntries" : {
+            "type" : "array",
+            "uniqueItems" : true,
+            "items" : {
+              "$ref" : "#/components/schemas/SyncChange"
+            }
+          },
+          "conflicts" : {
+            "type" : "array",
+            "uniqueItems" : true,
+            "items" : {
+              "$ref" : "#/components/schemas/SyncChange"
+            }
+          }
+        }
+      },
+      "PermissionSyncImportRequest" : {
+        "description" : "Environment import request. Each entityType and technicalKey pair must be unique, and every action must match the previewed change and its allowed resolution.",
+        "type" : "object",
+        "required" : [ "snapshot", "expectedTargetFingerprint" ],
+        "properties" : {
+          "snapshot" : {
+            "$ref" : "#/components/schemas/GlobalPermissionSnapshot"
+          },
+          "expectedTargetFingerprint" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "\\S"
+          },
+          "actions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PermissionSyncAction"
+            }
+          }
+        }
+      },
+      "PermissionSyncMetadataRecord" : {
+        "description" : "Metadata recorded after a permission environment import.",
+        "type" : "object",
+        "required" : [ "snapshotId", "actorUserId", "importedAt" ],
+        "properties" : {
+          "snapshotId" : {
+            "type" : "string"
+          },
+          "actorUserId" : {
+            "type" : "string"
+          },
+          "importedAt" : {
+            "$ref" : "#/components/schemas/Instant"
+          }
+        }
+      },
+      "PermissionSyncPreviewResponse" : {
+        "description" : "Preview of permission changes produced by an environment snapshot.",
+        "type" : "object",
+        "required" : [ "snapshotId", "targetFingerprint", "changes", "conflicts", "projectOnlyEntries" ],
+        "properties" : {
+          "snapshotId" : {
+            "type" : "string"
+          },
+          "targetFingerprint" : {
+            "type" : "string"
+          },
+          "changes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SyncChange"
+            }
+          },
+          "conflicts" : {
+            "type" : "array",
+            "uniqueItems" : true,
+            "items" : {
+              "$ref" : "#/components/schemas/SyncChange"
+            }
+          },
+          "projectOnlyEntries" : {
+            "type" : "array",
+            "uniqueItems" : true,
+            "items" : {
+              "$ref" : "#/components/schemas/SyncChange"
+            }
+          }
+        }
+      },
+      "PlayerEffectiveRoleResponse" : {
+        "description" : "Effective player role and the assignments that contributed it.",
+        "type" : "object",
+        "required" : [ "id", "roleKey", "roleName", "source", "expiresAt", "editable", "directGrant", "inherited", "assignments" ],
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "roleKey" : {
+            "type" : "string"
+          },
+          "roleName" : {
+            "type" : "string"
+          },
+          "source" : {
+            "$ref" : "#/components/schemas/PermissionGrantOriginKind"
+          },
+          "expiresAt" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/Instant"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "editable" : {
+            "type" : "boolean"
+          },
+          "directGrant" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/PlayerRoleGrantResponse"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "inherited" : {
+            "type" : "boolean"
+          },
+          "assignments" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/EffectiveRoleAssignmentResponse"
+            }
+          }
+        }
+      },
+      "PlayerGrantResponse" : {
+        "description" : "Direct permission grant assigned to a player.",
+        "type" : "object",
+        "required" : [ "id", "playerId", "effect", "permissionPattern", "scopeKind", "scopeValue", "expiresAt" ],
+        "properties" : {
+          "id" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "playerId" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "effect" : {
+            "$ref" : "#/components/schemas/PermissionEffect"
+          },
+          "permissionPattern" : {
+            "type" : "string"
+          },
+          "scopeKind" : {
+            "$ref" : "#/components/schemas/PermissionScopeKind"
+          },
+          "scopeValue" : {
+            "type" : [ "string", "null" ]
+          },
+          "expiresAt" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/Instant"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        }
+      },
+      "PlayerIdentityResponse" : {
+        "description" : "Projected Minecraft identity and evaluation readiness for a player.",
+        "type" : "object",
+        "required" : [ "playerId", "name", "linked", "syncedAt", "sourceUpdatedAt", "fresh", "evaluationSafe" ],
+        "properties" : {
+          "playerId" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "name" : {
+            "type" : [ "string", "null" ]
+          },
+          "linked" : {
+            "type" : "boolean"
+          },
+          "syncedAt" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/Instant"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "sourceUpdatedAt" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/Instant"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "fresh" : {
+            "type" : "boolean"
+          },
+          "evaluationSafe" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "PlayerRoleGrantRequest" : {
+        "required" : [ "roleKey" ],
+        "description" : "Payload for assigning a role directly to a player.",
+        "type" : "object",
+        "properties" : {
+          "roleKey" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^[a-z0-9._-]+$"
+          },
+          "expiresAt" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/Instant"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        }
+      },
+      "PlayerRoleGrantResponse" : {
+        "type" : "object",
+        "description" : "Direct role assignment for a player.",
+        "required" : [ "id", "playerId", "roleKey", "expiresAt" ],
+        "properties" : {
+          "id" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "playerId" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "roleKey" : {
+            "type" : "string"
+          },
+          "expiresAt" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/Instant"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        }
+      },
+      "PlayerSearchItemResponse" : {
+        "description" : "Player search result with permission assignment counts.",
+        "type" : "object",
+        "required" : [ "playerId", "name", "linked", "directRoleGrantCount", "directPermissionGrantCount", "effectiveRoleCount", "effectivePermissionGrantCount" ],
+        "properties" : {
+          "playerId" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "linked" : {
+            "type" : "boolean"
+          },
+          "directRoleGrantCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "directPermissionGrantCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "effectiveRoleCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "effectivePermissionGrantCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "PlayerSearchResponse" : {
+        "description" : "Paginated player search results.",
+        "type" : "object",
+        "required" : [ "items", "page", "perPage", "total" ],
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PlayerSearchItemResponse"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "perPage" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "RoleGrantResponse" : {
+        "description" : "Permission grant assigned to a role.",
+        "type" : "object",
+        "required" : [ "id", "roleKey", "effect", "permissionPattern", "scopeKind", "scopeValue", "expiresAt" ],
+        "properties" : {
+          "id" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "roleKey" : {
+            "type" : "string"
+          },
+          "effect" : {
+            "$ref" : "#/components/schemas/PermissionEffect"
+          },
+          "permissionPattern" : {
+            "type" : "string"
+          },
+          "scopeKind" : {
+            "$ref" : "#/components/schemas/PermissionScopeKind"
+          },
+          "scopeValue" : {
+            "type" : [ "string", "null" ]
+          },
+          "expiresAt" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/Instant"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        }
+      },
+      "RoleListResponse" : {
+        "description" : "Permission role summary with aggregate assignment counts.",
+        "type" : "object",
+        "required" : [ "key", "name", "description", "prefix", "color", "sortOrder", "metadata", "default", "grantCount", "inheritanceCount", "parentRoleKeys" ],
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "prefix" : {
+            "type" : [ "string", "null" ]
+          },
+          "color" : {
+            "type" : [ "string", "null" ]
+          },
+          "sortOrder" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "metadata" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "default" : {
+            "type" : "boolean"
+          },
+          "grantCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "inheritanceCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "parentRoleKeys" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "RoleRequest" : {
+        "required" : [ "name" ],
+        "description" : "Payload for creating or updating a permission role.",
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : [ "string", "null" ]
+          },
+          "name" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "\\S"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "prefix" : {
+            "type" : [ "string", "null" ]
+          },
+          "color" : {
+            "type" : [ "string", "null" ]
+          },
+          "sortOrder" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "metadata" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "default" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "RoleResponse" : {
+        "description" : "Permission role details.",
+        "type" : "object",
+        "required" : [ "key", "name", "description", "prefix", "color", "sortOrder", "metadata", "default" ],
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "prefix" : {
+            "type" : [ "string", "null" ]
+          },
+          "color" : {
+            "type" : [ "string", "null" ]
+          },
+          "sortOrder" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "metadata" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "default" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "RuntimeManifestPermissionRequest" : {
+        "required" : [ "key", "label", "supportedScopes" ],
+        "description" : "Permission catalog entry contained in a runtime manifest.",
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^[a-z0-9._-]+$"
+          },
+          "label" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "\\S"
+          },
+          "description" : {
+            "type" : [ "string", "null" ]
+          },
+          "supportedScopes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PermissionScopeKind"
+            },
+            "minItems" : 1
+          }
+        }
+      },
+      "RuntimeManifestRequest" : {
+        "required" : [ "sourceVersion", "permissions" ],
+        "description" : "Complete permission catalog manifest published by one runtime source; an empty permissions list clears the source, permission keys must be unique, and source must not appear in the body.",
+        "type" : "object",
+        "properties" : {
+          "sourceVersion" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "\\S"
+          },
+          "serverType" : {
+            "type" : [ "string", "null" ],
+            "minLength" : 1,
+            "pattern" : "\\S"
+          },
+          "serverId" : {
+            "type" : [ "string", "null" ],
+            "minLength" : 1,
+            "pattern" : "\\S"
+          },
+          "permissions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RuntimeManifestPermissionRequest"
+            }
+          }
+        }
+      },
+      "RuntimePermissionGrantDto" : {
+        "description" : "Effective runtime permission grant.",
+        "type" : "object",
+        "required" : [ "effect", "pattern", "scope", "source", "expiresAt" ],
+        "properties" : {
+          "effect" : {
+            "$ref" : "#/components/schemas/PermissionEffect"
+          },
+          "pattern" : {
+            "type" : "string"
+          },
+          "scope" : {
+            "$ref" : "#/components/schemas/PermissionScopeDto"
+          },
+          "source" : {
+            "$ref" : "#/components/schemas/PermissionGrantSource"
+          },
+          "expiresAt" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/Instant"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        }
+      },
+      "RuntimePermissionSnapshotResponse" : {
+        "description" : "Effective permission snapshot consumed by a runtime workload.",
+        "type" : "object",
+        "required" : [ "playerId", "policyVersion", "issuedAt", "refreshAfter", "expiresAt", "allowPatterns", "denyPatterns", "roleKeys", "roleMetadata" ],
+        "properties" : {
+          "playerId" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "policyVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "issuedAt" : {
+            "$ref" : "#/components/schemas/Instant"
+          },
+          "refreshAfter" : {
+            "$ref" : "#/components/schemas/Instant"
+          },
+          "expiresAt" : {
+            "$ref" : "#/components/schemas/Instant"
+          },
+          "allowPatterns" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RuntimePermissionGrantDto"
+            }
+          },
+          "denyPatterns" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RuntimePermissionGrantDto"
+            }
+          },
+          "roleKeys" : {
+            "type" : "array",
+            "uniqueItems" : true,
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "roleMetadata" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RuntimeRoleMetadataDto"
+            }
+          }
+        }
+      },
+      "RuntimeRoleMetadataDto" : {
+        "type" : "object",
+        "description" : "Display metadata for an effective runtime role.",
+        "required" : [ "key", "name", "prefix", "color", "sortOrder" ],
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "prefix" : {
+            "type" : [ "string", "null" ]
+          },
+          "color" : {
+            "type" : [ "string", "null" ]
+          },
+          "sortOrder" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "SyncAction" : {
+        "description" : "Resolution action applied to an environment-sync change.",
+        "type" : "string",
+        "enum" : [ "IMPORT", "KEEP_PROJECT", "USE_GLOBAL", "REMOVE_PROJECT_ENTRY" ]
+      },
+      "SyncCatalogEntry" : {
+        "type" : "object",
+        "description" : "Permission catalog entry contained in an environment snapshot.",
+        "required" : [ "permissionKey", "label", "source", "sourceVersion", "supportedScopes" ],
+        "properties" : {
+          "permissionKey" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "source" : {
+            "type" : "string"
+          },
+          "sourceVersion" : {
+            "type" : "string"
+          },
+          "supportedScopes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PermissionScopeKind"
+            }
+          },
+          "custom" : {
+            "type" : "boolean"
+          },
+          "lastSeenAt" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/Instant"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        }
+      },
+      "SyncChange" : {
+        "type" : "object",
+        "description" : "One permission entity difference in an environment-sync preview.",
+        "required" : [ "entityType", "technicalKey", "kind" ],
+        "properties" : {
+          "entityType" : {
+            "$ref" : "#/components/schemas/SyncEntityType"
+          },
+          "technicalKey" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "$ref" : "#/components/schemas/SyncChangeKind"
+          }
+        }
+      },
+      "SyncChangeKind" : {
+        "description" : "Kind of difference between target and imported permission state.",
+        "type" : "string",
+        "enum" : [ "IMPORT", "CONFLICT", "PROJECT_ONLY" ]
+      },
+      "SyncDispatchResponse" : {
+        "description" : "Acknowledgement for an asynchronously dispatched synchronization.",
+        "type" : "object",
+        "required" : [ "status" ],
+        "properties" : {
+          "status" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SyncEntityType" : {
+        "description" : "Permission entity category used by environment synchronization.",
+        "type" : "string",
+        "enum" : [ "ROLE", "ROLE_GRANT", "INHERITANCE", "CATALOG_ENTRY", "KEYCLOAK_MAPPING" ]
+      },
+      "SyncInheritance" : {
+        "type" : "object",
+        "description" : "Parent-child role inheritance edge contained in an environment snapshot.",
+        "required" : [ "parentRoleKey", "childRoleKey" ],
+        "properties" : {
+          "parentRoleKey" : {
+            "type" : "string"
+          },
+          "childRoleKey" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SyncKeycloakMapping" : {
+        "type" : "object",
+        "description" : "Keycloak group-to-role mapping contained in an environment snapshot.",
+        "required" : [ "id", "keycloakGroup", "roleKey" ],
+        "properties" : {
+          "id" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "keycloakGroup" : {
+            "type" : "string"
+          },
+          "roleKey" : {
+            "type" : "string"
+          },
+          "expiresAt" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/Instant"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        }
+      },
+      "SyncPlayerGrant" : {
+        "type" : "object",
+        "description" : "Rejected player-specific grant marker in a global environment snapshot.",
+        "required" : [ "technicalKey" ],
+        "properties" : {
+          "technicalKey" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SyncRole" : {
+        "type" : "object",
+        "description" : "Permission role contained in an environment snapshot.",
+        "required" : [ "key", "name" ],
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "prefix" : {
+            "type" : [ "string", "null" ]
+          },
+          "color" : {
+            "type" : [ "string", "null" ]
+          },
+          "sortOrder" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "metadata" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "default" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "SyncRoleGrant" : {
+        "type" : "object",
+        "description" : "Role permission grant contained in an environment snapshot.",
+        "required" : [ "id", "roleKey", "effect", "permissionPattern", "scopeKind" ],
+        "properties" : {
+          "id" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "roleKey" : {
+            "type" : "string"
+          },
+          "effect" : {
+            "$ref" : "#/components/schemas/PermissionEffect"
+          },
+          "permissionPattern" : {
+            "type" : "string"
+          },
+          "scopeKind" : {
+            "$ref" : "#/components/schemas/PermissionScopeKind"
+          },
+          "scopeValue" : {
+            "type" : [ "string", "null" ]
+          },
+          "expiresAt" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/Instant"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        }
+      },
+      "UUID" : {
+        "type" : "string",
+        "format" : "uuid",
+        "pattern" : "[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}",
+        "description" : "Universally unique identifier."
+      },
+      "ProblemDetails" : {
+        "type" : "object",
+        "description" : "RFC 9457 problem details response.",
+        "properties" : {
+          "type" : {
+            "type" : "string",
+            "format" : "uri-reference"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "detail" : {
+            "type" : "string"
+          },
+          "instance" : {
+            "type" : "string",
+            "format" : "uri-reference"
+          },
+          "requestId" : {
+            "type" : "string"
+          },
+          "error" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "type", "title", "status", "detail", "instance", "requestId" ]
+      }
+    },
+    "securitySchemes" : {
+      "portalBearer" : {
+        "type" : "http",
+        "description" : "Portal administrator JWT.",
+        "scheme" : "bearer",
+        "bearerFormat" : "JWT"
+      },
+      "workloadBearer" : {
+        "type" : "http",
+        "description" : "Workload JWT for service-to-service requests.",
+        "scheme" : "bearer",
+        "bearerFormat" : "JWT"
+      }
+    }
+  },
+  "info" : {
+    "description" : "Internal REST API for permissions administration and workload evaluation.",
+    "title" : "Permissions API",
+    "version" : "dev"
+  },
+  "tags" : [ {
+    "name" : "Administration",
+    "description" : "Portal permissions administration."
+  }, {
+    "name" : "Runtime",
+    "description" : "Workload permission evaluation and catalog."
+  }, {
+    "name" : "Environment sync",
+    "description" : "Permission configuration transfer between environments."
+  } ],
+  "paths" : {
+    "/v1/permissions/audit" : {
+      "get" : {
+        "summary" : "List permission audit events",
+        "operationId" : "listPermissionAuditEvents",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "action",
+          "in" : "query",
+          "schema" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "required" : false,
+          "description" : "Optional audit action filters."
+        }, {
+          "name" : "from",
+          "in" : "query",
+          "schema" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time"
+          },
+          "required" : false,
+          "description" : "Optional inclusive audit start time."
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 1,
+            "minimum" : 1
+          },
+          "required" : false,
+          "description" : "One-based result page."
+        }, {
+          "name" : "perPage",
+          "in" : "query",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 25,
+            "minimum" : 1,
+            "maximum" : 100
+          },
+          "required" : false,
+          "description" : "Number of results per page."
+        }, {
+          "name" : "q",
+          "in" : "query",
+          "schema" : {
+            "type" : [ "string", "null" ]
+          },
+          "required" : false,
+          "description" : "Optional audit search query."
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "schema" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time"
+          },
+          "required" : false,
+          "description" : "Optional inclusive audit end time."
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Completed successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PermissionAuditPageResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/catalog" : {
+      "get" : {
+        "summary" : "List permission catalog entries",
+        "operationId" : "listPermissionCatalog",
+        "tags" : [ "Administration" ],
+        "responses" : {
+          "200" : {
+            "description" : "Completed successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/CatalogEntryResponse"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/catalog/custom" : {
+      "post" : {
+        "summary" : "Create a custom catalog entry",
+        "operationId" : "createCustomCatalogEntry",
+        "tags" : [ "Administration" ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "allOf" : [ {
+                  "$ref" : "#/components/schemas/CatalogEntryRequest"
+                } ],
+                "properties" : {
+                  "key" : {
+                    "type" : "string",
+                    "minLength" : 1,
+                    "pattern" : "^[a-z0-9._-]+$",
+                    "description" : "Permission key for the new catalog entry."
+                  }
+                },
+                "required" : [ "key", "label" ]
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Created successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CatalogEntryResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/catalog/custom/{permissionKey}" : {
+      "put" : {
+        "summary" : "Update a custom catalog entry",
+        "operationId" : "updateCustomCatalogEntry",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "permissionKey",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^[a-z0-9._-]+$"
+          },
+          "description" : "Catalog permission key."
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CatalogEntryRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Completed successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CatalogEntryResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      },
+      "delete" : {
+        "summary" : "Delete a custom catalog entry",
+        "operationId" : "deleteCustomCatalogEntry",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "permissionKey",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^[a-z0-9._-]+$"
+          },
+          "description" : "Catalog permission key."
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "Completed successfully with no response body."
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/catalog/search" : {
+      "get" : {
+        "summary" : "Search permission catalog entries",
+        "operationId" : "searchPermissionCatalog",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "page",
+          "in" : "query",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 1,
+            "minimum" : 1
+          },
+          "required" : false,
+          "description" : "One-based result page."
+        }, {
+          "name" : "perPage",
+          "in" : "query",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20,
+            "minimum" : 1,
+            "maximum" : 100
+          },
+          "required" : false,
+          "description" : "Number of results per page."
+        }, {
+          "name" : "query",
+          "in" : "query",
+          "schema" : {
+            "type" : [ "string", "null" ]
+          },
+          "required" : false,
+          "description" : "Optional case-insensitive search query."
+        }, {
+          "name" : "sortBy",
+          "in" : "query",
+          "schema" : {
+            "type" : [ "string", "null" ],
+            "enum" : [ "permission", "label", "source", "lastseen" ]
+          },
+          "required" : false,
+          "description" : "Field used to order results."
+        }, {
+          "name" : "sortDirection",
+          "in" : "query",
+          "schema" : {
+            "type" : [ "string", "null" ],
+            "enum" : [ "asc", "desc" ]
+          },
+          "required" : false,
+          "description" : "Sort direction: asc or desc."
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Completed successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PagedResponseCatalogEntryResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/identity-sync" : {
+      "post" : {
+        "summary" : "Synchronize all player identities",
+        "operationId" : "synchronizePlayerIdentities",
+        "tags" : [ "Administration" ],
+        "responses" : {
+          "202" : {
+            "description" : "Accepted for asynchronous processing.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SyncDispatchResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/identity-sync/status" : {
+      "get" : {
+        "summary" : "Get player identity sync status",
+        "operationId" : "getPlayerIdentitySyncStatus",
+        "tags" : [ "Administration" ],
+        "responses" : {
+          "200" : {
+            "description" : "Completed successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/IdentitySyncStatusResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/keycloak-groups" : {
+      "get" : {
+        "summary" : "List Keycloak group mappings",
+        "operationId" : "listKeycloakGroupMappings",
+        "tags" : [ "Administration" ],
+        "responses" : {
+          "200" : {
+            "description" : "Completed successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/KeycloakGroupMappingResponse"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      },
+      "post" : {
+        "summary" : "Create a Keycloak group mapping",
+        "operationId" : "createKeycloakGroupMapping",
+        "tags" : [ "Administration" ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/KeycloakGroupMappingRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Created successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/KeycloakGroupMappingResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/keycloak-groups/search" : {
+      "get" : {
+        "summary" : "Search Keycloak group mappings",
+        "operationId" : "searchKeycloakGroupMappings",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "page",
+          "in" : "query",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 1,
+            "minimum" : 1
+          },
+          "required" : false,
+          "description" : "One-based result page."
+        }, {
+          "name" : "perPage",
+          "in" : "query",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20,
+            "minimum" : 1,
+            "maximum" : 100
+          },
+          "required" : false,
+          "description" : "Number of results per page."
+        }, {
+          "name" : "query",
+          "in" : "query",
+          "schema" : {
+            "type" : [ "string", "null" ]
+          },
+          "required" : false,
+          "description" : "Optional case-insensitive search query."
+        }, {
+          "name" : "sortBy",
+          "in" : "query",
+          "schema" : {
+            "type" : [ "string", "null" ],
+            "enum" : [ "group", "role", "expiration" ]
+          },
+          "required" : false,
+          "description" : "Field used to order results."
+        }, {
+          "name" : "sortDirection",
+          "in" : "query",
+          "schema" : {
+            "type" : [ "string", "null" ],
+            "enum" : [ "asc", "desc" ]
+          },
+          "required" : false,
+          "description" : "Sort direction: asc or desc."
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Completed successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PagedResponseKeycloakGroupMappingResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/keycloak-groups/{mappingId}" : {
+      "put" : {
+        "summary" : "Update a Keycloak group mapping",
+        "operationId" : "updateKeycloakGroupMapping",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "mappingId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "description" : "Keycloak group mapping UUID."
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/KeycloakGroupMappingRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Completed successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/KeycloakGroupMappingResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      },
+      "delete" : {
+        "summary" : "Delete a Keycloak group mapping",
+        "operationId" : "deleteKeycloakGroupMapping",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "mappingId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "description" : "Keycloak group mapping UUID."
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "Completed successfully with no response body."
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/players/external-search" : {
+      "get" : {
+        "summary" : "Find an external Minecraft player",
+        "operationId" : "searchExternalPlayer",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "query",
+          "in" : "query",
+          "schema" : {
+            "type" : "string",
+            "minLength" : 3,
+            "maxLength" : 16,
+            "pattern" : "^[A-Za-z0-9_]{3,16}$"
+          },
+          "required" : true,
+          "description" : "Exact Minecraft username to look up outside the local player index."
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Completed successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PlayerSearchItemResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "The requested resource was not found.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/players/search" : {
+      "get" : {
+        "summary" : "Search known players",
+        "operationId" : "searchPlayers",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "page",
+          "in" : "query",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 1,
+            "minimum" : 1
+          },
+          "required" : false,
+          "description" : "One-based result page."
+        }, {
+          "name" : "perPage",
+          "in" : "query",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20,
+            "minimum" : 1,
+            "maximum" : 100
+          },
+          "required" : false,
+          "description" : "Number of results per page."
+        }, {
+          "name" : "query",
+          "in" : "query",
+          "schema" : {
+            "type" : "string",
+            "minLength" : 2
+          },
+          "required" : true,
+          "description" : "Minecraft username fragment or complete player UUID to search for."
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Completed successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PlayerSearchResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/players/{playerId}/check" : {
+      "get" : {
+        "summary" : "Evaluate one player permission",
+        "operationId" : "checkPlayerPermission",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "playerId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "description" : "Minecraft player UUID."
+        }, {
+          "name" : "environment",
+          "in" : "query",
+          "schema" : {
+            "type" : [ "string", "null" ]
+          },
+          "required" : false,
+          "description" : "Optional environment scope."
+        }, {
+          "name" : "permission",
+          "in" : "query",
+          "schema" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^[a-z0-9._-]+$"
+          },
+          "required" : true,
+          "description" : "Permission key to evaluate."
+        }, {
+          "name" : "serverId",
+          "in" : "query",
+          "schema" : {
+            "type" : [ "string", "null" ]
+          },
+          "required" : false,
+          "description" : "Optional server instance scope."
+        }, {
+          "name" : "serverType",
+          "in" : "query",
+          "schema" : {
+            "type" : [ "string", "null" ]
+          },
+          "required" : false,
+          "description" : "Optional server type scope."
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Completed successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PermissionCheckResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/players/{playerId}/effective" : {
+      "get" : {
+        "summary" : "Get effective player permissions",
+        "operationId" : "getEffectivePlayerPermissions",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "playerId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "description" : "Minecraft player UUID."
+        }, {
+          "name" : "serverId",
+          "in" : "query",
+          "schema" : {
+            "type" : [ "string", "null" ]
+          },
+          "required" : false,
+          "description" : "Optional server instance scope."
+        }, {
+          "name" : "serverType",
+          "in" : "query",
+          "schema" : {
+            "type" : [ "string", "null" ]
+          },
+          "required" : false,
+          "description" : "Optional server type scope."
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Completed successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EffectivePermissionResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/players/{playerId}/effective/search" : {
+      "get" : {
+        "summary" : "Search effective player permissions",
+        "operationId" : "searchEffectivePlayerPermissions",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "playerId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "description" : "Minecraft player UUID."
+        }, {
+          "name" : "effect",
+          "in" : "query",
+          "schema" : {
+            "type" : [ "string", "null" ],
+            "enum" : [ "ALL", "ALLOW", "DENY" ]
+          },
+          "required" : false,
+          "description" : "Optional permission effect filter."
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 1,
+            "minimum" : 1
+          },
+          "required" : false,
+          "description" : "One-based result page."
+        }, {
+          "name" : "perPage",
+          "in" : "query",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20,
+            "minimum" : 1,
+            "maximum" : 100
+          },
+          "required" : false,
+          "description" : "Number of results per page."
+        }, {
+          "name" : "query",
+          "in" : "query",
+          "schema" : {
+            "type" : [ "string", "null" ]
+          },
+          "required" : false,
+          "description" : "Optional case-insensitive search query."
+        }, {
+          "name" : "serverId",
+          "in" : "query",
+          "schema" : {
+            "type" : [ "string", "null" ]
+          },
+          "required" : false,
+          "description" : "Optional server instance scope."
+        }, {
+          "name" : "serverType",
+          "in" : "query",
+          "schema" : {
+            "type" : [ "string", "null" ]
+          },
+          "required" : false,
+          "description" : "Optional server type scope."
+        }, {
+          "name" : "sortBy",
+          "in" : "query",
+          "schema" : {
+            "type" : [ "string", "null" ],
+            "enum" : [ "permission", "effect", "scope", "source", "expiration" ]
+          },
+          "required" : false,
+          "description" : "Field used to order results."
+        }, {
+          "name" : "sortDirection",
+          "in" : "query",
+          "schema" : {
+            "type" : [ "string", "null" ],
+            "enum" : [ "asc", "desc" ]
+          },
+          "required" : false,
+          "description" : "Sort direction: asc or desc."
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Completed successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PagedResponseEffectiveGrantResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/players/{playerId}/grants" : {
+      "get" : {
+        "summary" : "List direct player permission grants",
+        "operationId" : "listPlayerGrants",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "playerId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "description" : "Minecraft player UUID."
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Completed successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/PlayerGrantResponse"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      },
+      "post" : {
+        "summary" : "Create a player permission grant",
+        "operationId" : "createPlayerGrant",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "playerId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "description" : "Minecraft player UUID."
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/GrantRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Created successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PlayerGrantResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/players/{playerId}/grants/search" : {
+      "get" : {
+        "summary" : "Search direct player permission grants",
+        "operationId" : "searchPlayerGrants",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "playerId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "description" : "Minecraft player UUID."
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 1,
+            "minimum" : 1
+          },
+          "required" : false,
+          "description" : "One-based result page."
+        }, {
+          "name" : "perPage",
+          "in" : "query",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20,
+            "minimum" : 1,
+            "maximum" : 100
+          },
+          "required" : false,
+          "description" : "Number of results per page."
+        }, {
+          "name" : "query",
+          "in" : "query",
+          "schema" : {
+            "type" : [ "string", "null" ]
+          },
+          "required" : false,
+          "description" : "Optional case-insensitive search query."
+        }, {
+          "name" : "sortBy",
+          "in" : "query",
+          "schema" : {
+            "type" : [ "string", "null" ],
+            "enum" : [ "permission", "effect", "scope", "expiration" ]
+          },
+          "required" : false,
+          "description" : "Field used to order results."
+        }, {
+          "name" : "sortDirection",
+          "in" : "query",
+          "schema" : {
+            "type" : [ "string", "null" ],
+            "enum" : [ "asc", "desc" ]
+          },
+          "required" : false,
+          "description" : "Sort direction: asc or desc."
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Completed successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PagedResponsePlayerGrantResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/players/{playerId}/grants/{grantId}" : {
+      "put" : {
+        "summary" : "Update a player permission grant",
+        "operationId" : "updatePlayerGrant",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "grantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "description" : "Grant UUID."
+        }, {
+          "name" : "playerId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "description" : "Minecraft player UUID."
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/GrantRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Completed successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PlayerGrantResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      },
+      "delete" : {
+        "summary" : "Delete a player permission grant",
+        "operationId" : "deletePlayerGrant",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "grantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "description" : "Grant UUID."
+        }, {
+          "name" : "playerId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "description" : "Minecraft player UUID."
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "Completed successfully with no response body."
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/players/{playerId}/identity" : {
+      "get" : {
+        "summary" : "Get projected player identity",
+        "operationId" : "getPlayerIdentity",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "playerId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "description" : "Minecraft player UUID."
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Completed successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PlayerIdentityResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/players/{playerId}/identity-sync" : {
+      "post" : {
+        "summary" : "Synchronize one player identity",
+        "operationId" : "synchronizePlayerIdentity",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "playerId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "description" : "Minecraft player UUID."
+        } ],
+        "responses" : {
+          "202" : {
+            "description" : "Accepted for asynchronous processing.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SyncDispatchResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "The requested resource was not found.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/players/{playerId}/roles" : {
+      "get" : {
+        "summary" : "List direct player role grants",
+        "operationId" : "listPlayerRoleGrants",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "playerId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "description" : "Minecraft player UUID."
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Completed successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/PlayerRoleGrantResponse"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      },
+      "post" : {
+        "summary" : "Create a player role grant",
+        "operationId" : "createPlayerRoleGrant",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "playerId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "description" : "Minecraft player UUID."
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PlayerRoleGrantRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Created successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PlayerRoleGrantResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/players/{playerId}/roles/search" : {
+      "get" : {
+        "summary" : "Search effective player roles",
+        "operationId" : "searchPlayerRoles",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "playerId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "description" : "Minecraft player UUID."
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 1,
+            "minimum" : 1
+          },
+          "required" : false,
+          "description" : "One-based result page."
+        }, {
+          "name" : "perPage",
+          "in" : "query",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20,
+            "minimum" : 1,
+            "maximum" : 100
+          },
+          "required" : false,
+          "description" : "Number of results per page."
+        }, {
+          "name" : "query",
+          "in" : "query",
+          "schema" : {
+            "type" : [ "string", "null" ]
+          },
+          "required" : false,
+          "description" : "Optional case-insensitive search query."
+        }, {
+          "name" : "sortBy",
+          "in" : "query",
+          "schema" : {
+            "type" : [ "string", "null" ],
+            "enum" : [ "role", "source", "expiration" ]
+          },
+          "required" : false,
+          "description" : "Field used to order results."
+        }, {
+          "name" : "sortDirection",
+          "in" : "query",
+          "schema" : {
+            "type" : [ "string", "null" ],
+            "enum" : [ "asc", "desc" ]
+          },
+          "required" : false,
+          "description" : "Sort direction: asc or desc."
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Completed successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PagedResponsePlayerEffectiveRoleResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/players/{playerId}/roles/{grantId}" : {
+      "put" : {
+        "summary" : "Update a player role grant",
+        "operationId" : "updatePlayerRoleGrant",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "grantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "description" : "Grant UUID."
+        }, {
+          "name" : "playerId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "description" : "Minecraft player UUID."
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PlayerRoleGrantRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Completed successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PlayerRoleGrantResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      },
+      "delete" : {
+        "summary" : "Delete a player role grant",
+        "operationId" : "deletePlayerRoleGrant",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "grantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "description" : "Grant UUID."
+        }, {
+          "name" : "playerId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "description" : "Minecraft player UUID."
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "Completed successfully with no response body."
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/roles" : {
+      "get" : {
+        "summary" : "List permission roles",
+        "operationId" : "listRoles",
+        "tags" : [ "Administration" ],
+        "responses" : {
+          "200" : {
+            "description" : "Completed successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/RoleListResponse"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      },
+      "post" : {
+        "summary" : "Create a permission role",
+        "operationId" : "createRole",
+        "tags" : [ "Administration" ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RoleRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Created successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RoleResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "The request conflicts with the current resource state.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/roles/{roleKey}" : {
+      "put" : {
+        "summary" : "Update a permission role",
+        "operationId" : "updateRole",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "roleKey",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^[a-z0-9._-]+$"
+          },
+          "description" : "Stable role key."
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RoleRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Completed successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RoleResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "The requested resource was not found.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      },
+      "get" : {
+        "summary" : "Get a permission role",
+        "operationId" : "getRole",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "roleKey",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^[a-z0-9._-]+$"
+          },
+          "description" : "Stable role key."
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Completed successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RoleResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "The requested resource was not found.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      },
+      "delete" : {
+        "summary" : "Delete a permission role",
+        "operationId" : "deleteRole",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "roleKey",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^[a-z0-9._-]+$"
+          },
+          "description" : "Stable role key."
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "Completed successfully with no response body."
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/roles/{roleKey}/grants" : {
+      "get" : {
+        "summary" : "List grants assigned to a role",
+        "operationId" : "listRoleGrants",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "roleKey",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^[a-z0-9._-]+$"
+          },
+          "description" : "Stable role key."
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Completed successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/RoleGrantResponse"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      },
+      "post" : {
+        "summary" : "Create a role grant",
+        "operationId" : "createRoleGrant",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "roleKey",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^[a-z0-9._-]+$"
+          },
+          "description" : "Stable role key."
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/GrantRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Created successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RoleGrantResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/roles/{roleKey}/grants/search" : {
+      "get" : {
+        "summary" : "Search grants assigned to a role",
+        "operationId" : "searchRoleGrants",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "roleKey",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^[a-z0-9._-]+$"
+          },
+          "description" : "Stable role key."
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 1,
+            "minimum" : 1
+          },
+          "required" : false,
+          "description" : "One-based result page."
+        }, {
+          "name" : "perPage",
+          "in" : "query",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20,
+            "minimum" : 1,
+            "maximum" : 100
+          },
+          "required" : false,
+          "description" : "Number of results per page."
+        }, {
+          "name" : "query",
+          "in" : "query",
+          "schema" : {
+            "type" : [ "string", "null" ]
+          },
+          "required" : false,
+          "description" : "Optional case-insensitive search query."
+        }, {
+          "name" : "sortBy",
+          "in" : "query",
+          "schema" : {
+            "type" : [ "string", "null" ],
+            "enum" : [ "permission", "effect", "scope", "expiration" ]
+          },
+          "required" : false,
+          "description" : "Field used to order results."
+        }, {
+          "name" : "sortDirection",
+          "in" : "query",
+          "schema" : {
+            "type" : [ "string", "null" ],
+            "enum" : [ "asc", "desc" ]
+          },
+          "required" : false,
+          "description" : "Sort direction: asc or desc."
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Completed successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PagedResponseRoleGrantResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/roles/{roleKey}/grants/{grantId}" : {
+      "put" : {
+        "summary" : "Update a role grant",
+        "operationId" : "updateRoleGrant",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "grantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "description" : "Grant UUID."
+        }, {
+          "name" : "roleKey",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^[a-z0-9._-]+$"
+          },
+          "description" : "Stable role key."
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/GrantRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Completed successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RoleGrantResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      },
+      "delete" : {
+        "summary" : "Delete a role grant",
+        "operationId" : "deleteRoleGrant",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "grantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "description" : "Grant UUID."
+        }, {
+          "name" : "roleKey",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^[a-z0-9._-]+$"
+          },
+          "description" : "Stable role key."
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "Completed successfully with no response body."
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/roles/{roleKey}/inherits/{parentRoleKey}" : {
+      "delete" : {
+        "summary" : "Remove role inheritance",
+        "operationId" : "removeRoleInheritance",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "parentRoleKey",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^[a-z0-9._-]+$"
+          },
+          "description" : "Stable parent role key."
+        }, {
+          "name" : "roleKey",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^[a-z0-9._-]+$"
+          },
+          "description" : "Stable role key."
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "Completed successfully with no response body."
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      },
+      "put" : {
+        "summary" : "Add role inheritance",
+        "operationId" : "addRoleInheritance",
+        "tags" : [ "Administration" ],
+        "parameters" : [ {
+          "name" : "parentRoleKey",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^[a-z0-9._-]+$"
+          },
+          "description" : "Stable parent role key."
+        }, {
+          "name" : "roleKey",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^[a-z0-9._-]+$"
+          },
+          "description" : "Stable role key."
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "Completed successfully with no response body."
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/runtime/catalog/manifests/{source}" : {
+      "put" : {
+        "summary" : "Replace a runtime permission manifest",
+        "operationId" : "replaceRuntimePermissionManifest",
+        "tags" : [ "Runtime" ],
+        "parameters" : [ {
+          "name" : "source",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "\\S"
+          },
+          "description" : "Stable runtime manifest source."
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RuntimeManifestRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "Completed successfully with no response body."
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "The request conflicts with the current resource state.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "workloadBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/runtime/players/{playerId}/snapshot" : {
+      "get" : {
+        "summary" : "Get a runtime player permission snapshot",
+        "operationId" : "getRuntimePermissionSnapshot",
+        "tags" : [ "Runtime" ],
+        "parameters" : [ {
+          "name" : "playerId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "description" : "Minecraft player UUID."
+        }, {
+          "name" : "serverId",
+          "in" : "query",
+          "schema" : {
+            "type" : [ "string", "null" ],
+            "minLength" : 1,
+            "pattern" : "\\S"
+          },
+          "required" : false,
+          "description" : "Optional server instance scope."
+        }, {
+          "name" : "serverType",
+          "in" : "query",
+          "schema" : {
+            "type" : [ "string", "null" ],
+            "minLength" : 1,
+            "pattern" : "\\S"
+          },
+          "required" : false,
+          "description" : "Optional server type scope."
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Completed successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RuntimePermissionSnapshotResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "workloadBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/sync/import" : {
+      "post" : {
+        "summary" : "Import a permission snapshot",
+        "operationId" : "importPermissionSync",
+        "tags" : [ "Environment sync" ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PermissionSyncImportRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Completed successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PermissionSyncMetadataRecord"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "The request conflicts with the current resource state.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/sync/preview" : {
+      "post" : {
+        "summary" : "Preview a permission snapshot import",
+        "operationId" : "previewPermissionSync",
+        "tags" : [ "Environment sync" ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/GlobalPermissionSnapshot"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Completed successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PermissionSyncPreviewResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "The request conflicts with the current resource state.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      }
+    },
+    "/v1/permissions/sync/snapshot" : {
+      "get" : {
+        "summary" : "Export a permission snapshot",
+        "operationId" : "getPermissionSyncSnapshot",
+        "tags" : [ "Environment sync" ],
+        "responses" : {
+          "200" : {
+            "description" : "Completed successfully.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GlobalPermissionSnapshot"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The request is invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is missing or invalid.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The authenticated subject is not authorized.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "The request failed because of an internal service error.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "A required service dependency is unavailable.",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "portalBearer" : [ ]
+        } ]
+      }
+    }
+  },
+  "servers" : [ ]
+}
