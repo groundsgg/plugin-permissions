@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/groundsgg/plugin-permissions/compare/v0.7.0...v0.8.0) (2026-07-29)
+
+
+### Features
+
+* **permissions:** refresh snapshots from live invalidations ([#23](https://github.com/groundsgg/plugin-permissions/issues/23)) ([da630b9](https://github.com/groundsgg/plugin-permissions/commit/da630b901e7008a9ecf4b384b8a9630135a20a45))
+
 ## [0.7.0](https://github.com/groundsgg/plugin-permissions/compare/v0.6.0...v0.7.0) (2026-07-26)
 
 
