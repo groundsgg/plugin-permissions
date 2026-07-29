@@ -60,6 +60,24 @@ class PermissionSnapshotInvalidationTest {
     }
 
     @Test
+    fun `rejects a raw payload with duplicate schema version fields`() {
+        val payload =
+            """{"schemaVersion":1,"schemaVersion":1,"playerId":"0f287625-2442-4f55-b928-d2f53fbdf575"}"""
+
+        assertNull(codec.decode(payload.toByteArray()))
+        assertEquals("malformed_json", codec.rejectionReason(payload.toByteArray()))
+    }
+
+    @Test
+    fun `rejects a raw payload with duplicate player id fields`() {
+        val payload =
+            """{"schemaVersion":1,"playerId":"0f287625-2442-4f55-b928-d2f53fbdf575","playerId":"0f287625-2442-4f55-b928-d2f53fbdf575"}"""
+
+        assertNull(codec.decode(payload.toByteArray()))
+        assertEquals("malformed_json", codec.rejectionReason(payload.toByteArray()))
+    }
+
+    @Test
     fun `disables invalidations when nats url is absent`() {
         assertNull(PermissionSnapshotInvalidationConfig.fromEnvironment(emptyMap()))
         assertNull(PermissionSnapshotInvalidationConfig.fromEnvironment(mapOf("NATS_URL" to "   ")))
@@ -79,6 +97,19 @@ class PermissionSnapshotInvalidationTest {
                     "GROUNDS_TOKEN_FILE" to "/var/run/secrets/grounds/token",
                 )
             ),
+        )
+    }
+
+    @Test
+    fun `treats a present blank token file as invalid configured authentication`() {
+        val config =
+            PermissionSnapshotInvalidationConfig.fromEnvironment(
+                mapOf("NATS_URL" to "nats://nats.internal:4222", "GROUNDS_TOKEN_FILE" to "   ")
+            )
+
+        assertEquals(
+            PermissionSnapshotInvalidationCredentials.InvalidTokenFile,
+            config?.credentials,
         )
     }
 

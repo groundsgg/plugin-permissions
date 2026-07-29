@@ -1,7 +1,9 @@
 package gg.grounds.permissions.invalidation
 
+import java.nio.file.InvalidPathException
 import java.nio.file.Path
 import java.util.UUID
+import tools.jackson.core.StreamReadFeature
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.json.JsonMapper
 
@@ -10,29 +12,67 @@ const val DEFAULT_PERMISSION_SNAPSHOT_INVALIDATION_SUBJECT = "permissions.snapsh
 
 data class PermissionSnapshotInvalidation(val schemaVersion: Int, val playerId: UUID)
 
+sealed interface PermissionSnapshotInvalidationCredentials {
+    data object Anonymous : PermissionSnapshotInvalidationCredentials
+
+    data class TokenFile(val path: Path) : PermissionSnapshotInvalidationCredentials
+
+    data object InvalidTokenFile : PermissionSnapshotInvalidationCredentials
+}
+
 data class PermissionSnapshotInvalidationConfig(
     val natsUrl: String,
-    val tokenFile: Path?,
+    val credentials: PermissionSnapshotInvalidationCredentials,
     val subject: String,
 ) {
+    constructor(
+        natsUrl: String,
+        tokenFile: Path?,
+        subject: String,
+    ) : this(
+        natsUrl,
+        tokenFile?.let(PermissionSnapshotInvalidationCredentials::TokenFile)
+            ?: PermissionSnapshotInvalidationCredentials.Anonymous,
+        subject,
+    )
+
+    val tokenFile: Path?
+        get() = (credentials as? PermissionSnapshotInvalidationCredentials.TokenFile)?.path
+
     companion object {
         fun fromEnvironment(
             environment: Map<String, String> = System.getenv()
         ): PermissionSnapshotInvalidationConfig? {
             val natsUrl = environment["NATS_URL"]?.trim()?.takeIf(String::isNotEmpty) ?: return null
-            val tokenFile =
-                environment["GROUNDS_TOKEN_FILE"]?.trim()?.takeIf(String::isNotEmpty)?.let(Path::of)
+            val credentials = credentialsFromEnvironment(environment)
             val subject =
                 environment["PERMISSIONS_SNAPSHOT_INVALIDATIONS_SUBJECT"]
                     ?.trim()
                     ?.takeIf(String::isNotEmpty) ?: DEFAULT_PERMISSION_SNAPSHOT_INVALIDATION_SUBJECT
-            return PermissionSnapshotInvalidationConfig(natsUrl, tokenFile, subject)
+            return PermissionSnapshotInvalidationConfig(natsUrl, credentials, subject)
+        }
+
+        private fun credentialsFromEnvironment(
+            environment: Map<String, String>
+        ): PermissionSnapshotInvalidationCredentials {
+            if (!environment.containsKey("GROUNDS_TOKEN_FILE")) {
+                return PermissionSnapshotInvalidationCredentials.Anonymous
+            }
+            val configuredPath =
+                environment["GROUNDS_TOKEN_FILE"]?.trim()?.takeIf(String::isNotEmpty)
+                    ?: return PermissionSnapshotInvalidationCredentials.InvalidTokenFile
+            return try {
+                PermissionSnapshotInvalidationCredentials.TokenFile(Path.of(configuredPath))
+            } catch (_: InvalidPathException) {
+                PermissionSnapshotInvalidationCredentials.InvalidTokenFile
+            }
         }
     }
 }
 
 class PermissionSnapshotInvalidationCodec {
-    private val mapper = JsonMapper.builder().build()
+    private val mapper =
+        JsonMapper.builder().enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION).build()
 
     fun decode(payload: ByteArray): PermissionSnapshotInvalidation? = decodeResult(payload).event
 

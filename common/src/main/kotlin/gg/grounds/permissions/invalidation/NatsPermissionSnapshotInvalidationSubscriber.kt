@@ -41,12 +41,25 @@ private constructor(
 
     private val started = AtomicBoolean()
     private val closed = AtomicBoolean()
+    private val lifecycleLock = Any()
 
     @Volatile private var connection: PermissionSnapshotInvalidationConnection? = null
 
     fun start(handler: (UUID) -> Unit) {
-        if (closed.get() || !started.compareAndSet(false, true)) return
-        retryScheduler.execute { connect(handler) }
+        synchronized(lifecycleLock) {
+            if (closed.get() || !started.compareAndSet(false, true)) return
+            try {
+                retryScheduler.execute { connect(handler) }
+            } catch (_: RuntimeException) {
+                if (!closed.get()) {
+                    logger.warn(
+                        "Failed to schedule permission snapshot invalidation subscription " +
+                            "(subject={}, reason=subscription_scheduling_failed)",
+                        config.subject,
+                    )
+                }
+            }
+        }
     }
 
     private fun connect(handler: (UUID) -> Unit) {
@@ -54,31 +67,56 @@ private constructor(
 
         var openedConnection: PermissionSnapshotInvalidationConnection? = null
         try {
-            val tokenSupplier = config.tokenFile?.let(::FileNatsTokenSupplier)
+            val tokenSupplier =
+                when (val credentials = config.credentials) {
+                    PermissionSnapshotInvalidationCredentials.Anonymous -> null
+                    PermissionSnapshotInvalidationCredentials.InvalidTokenFile ->
+                        throw PermissionSnapshotNatsTokenException(
+                            "invalid_token_file_configuration"
+                        )
+                    is PermissionSnapshotInvalidationCredentials.TokenFile ->
+                        FileNatsTokenSupplier(credentials.path)
+                }
             tokenSupplier?.get()?.fill('\u0000')
             openedConnection = connectionFactory.connect(config, tokenSupplier)
             openedConnection.subscribe(config.subject) { payload -> consume(payload, handler) }
-            connection = openedConnection
-            if (closed.get()) {
-                if (connection === openedConnection) {
-                    connection = null
-                    openedConnection.close()
+            val subscribed =
+                synchronized(lifecycleLock) {
+                    if (closed.get()) {
+                        false
+                    } else {
+                        connection = openedConnection
+                        logger.debug(
+                            "Subscribed to permission snapshot invalidations successfully " +
+                                "(subject={})",
+                            config.subject,
+                        )
+                        true
+                    }
                 }
+            if (!subscribed) {
+                closeQuietly(openedConnection)
                 return
             }
-            logger.debug(
-                "Subscribed to permission snapshot invalidations successfully (subject={})",
-                config.subject,
-            )
+        } catch (exception: PermissionSnapshotNatsTokenException) {
+            subscriptionFailed(openedConnection, handler, exception.reason)
         } catch (_: Exception) {
-            closeQuietly(openedConnection)
-            logger.warn(
-                "Failed to subscribe to permission snapshot invalidations " +
-                    "(subject={}, reason=nats_connection_failed)",
-                config.subject,
-            )
-            retry(handler)
+            subscriptionFailed(openedConnection, handler, "nats_connection_failed")
         }
+    }
+
+    private fun subscriptionFailed(
+        openedConnection: PermissionSnapshotInvalidationConnection?,
+        handler: (UUID) -> Unit,
+        reason: String,
+    ) {
+        closeQuietly(openedConnection)
+        logger.warn(
+            "Failed to subscribe to permission snapshot invalidations " + "(subject={}, reason={})",
+            config.subject,
+            reason,
+        )
+        retry(handler)
     }
 
     private fun consume(payload: ByteArray, handler: (UUID) -> Unit) {
@@ -104,15 +142,38 @@ private constructor(
     }
 
     private fun retry(handler: (UUID) -> Unit) {
-        if (closed.get()) return
-        retryScheduler.schedule(INITIAL_RETRY_DELAY) { if (!closed.get()) connect(handler) }
+        synchronized(lifecycleLock) {
+            if (closed.get()) return
+            try {
+                retryScheduler.schedule(INITIAL_RETRY_DELAY) { connect(handler) }
+            } catch (_: RuntimeException) {
+                if (!closed.get()) {
+                    logger.warn(
+                        "Failed to schedule permission snapshot invalidation retry " +
+                            "(subject={}, reason=retry_scheduling_failed)",
+                        config.subject,
+                    )
+                }
+            }
+        }
     }
 
     override fun close() {
-        if (!closed.compareAndSet(false, true)) return
-        retryScheduler.close()
-        closeQuietly(connection)
-        connection = null
+        val activeConnection =
+            synchronized(lifecycleLock) {
+                if (!closed.compareAndSet(false, true)) return
+                connection.also { connection = null }
+            }
+        try {
+            retryScheduler.close()
+        } catch (_: RuntimeException) {
+            logger.warn(
+                "Failed to close permission snapshot invalidation scheduler " +
+                    "(subject={}, reason=scheduler_close_failed)",
+                config.subject,
+            )
+        }
+        closeQuietly(activeConnection)
     }
 
     private fun closeQuietly(connection: PermissionSnapshotInvalidationConnection?) {
@@ -138,11 +199,20 @@ internal fun interface NatsTokenSupplier {
 
 internal class FileNatsTokenSupplier(private val tokenFile: Path) : NatsTokenSupplier {
     override fun get(): CharArray {
-        val token = Files.readString(tokenFile).trim()
-        require(token.isNotEmpty()) { "Configured NATS token file is empty" }
+        val token =
+            try {
+                Files.readString(tokenFile).trim()
+            } catch (_: Exception) {
+                throw PermissionSnapshotNatsTokenException("token_file_unavailable")
+            }
+        if (token.isEmpty()) {
+            throw PermissionSnapshotNatsTokenException("token_file_empty")
+        }
         return token.toCharArray()
     }
 }
+
+private class PermissionSnapshotNatsTokenException(val reason: String) : RuntimeException()
 
 internal interface PermissionSnapshotInvalidationConnectionFactory {
     fun connect(
