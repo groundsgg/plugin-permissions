@@ -6,6 +6,7 @@ dependencies {
     implementation(project(":common"))
 
     testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("org.mockito.kotlin:mockito-kotlin")
     testImplementation("org.slf4j:slf4j-api")
     testImplementation("com.velocitypowered:velocity-api")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")

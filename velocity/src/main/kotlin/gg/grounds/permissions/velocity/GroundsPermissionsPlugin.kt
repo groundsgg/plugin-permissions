@@ -19,6 +19,7 @@ import gg.grounds.permissions.catalog.PermissionManifest
 import gg.grounds.permissions.catalog.PermissionManifestCollector
 import gg.grounds.permissions.client.HttpPermissionRuntimeClient
 import gg.grounds.permissions.client.ManifestRegistrationScheduler
+import gg.grounds.permissions.client.PermissionRuntimeClient
 import gg.grounds.permissions.client.PermissionRuntimeStatus
 import gg.grounds.permissions.client.PermissionServiceConfig
 import gg.grounds.permissions.client.PermissionSnapshotContext
@@ -28,8 +29,22 @@ import gg.grounds.permissions.invalidation.PermissionSnapshotInvalidationLifecyc
 import java.util.concurrent.TimeUnit
 import org.slf4j.Logger
 
-internal fun interface VelocityPermissionsRuntimeInitializer {
-    fun initialize(plugin: GroundsPermissionsPlugin): AutoCloseable?
+internal fun interface VelocityPermissionRuntimeClientFactory {
+    fun create(
+        config: PermissionServiceConfig,
+        status: PermissionRuntimeStatus,
+    ): PermissionRuntimeClient
+}
+
+internal fun interface VelocityPermissionSnapshotInvalidationStarter {
+    fun start(
+        config: PermissionSnapshotInvalidationConfig?,
+        snapshots: InMemoryPermissionSnapshots,
+        runtimeClient: PermissionRuntimeClient,
+        context: PermissionSnapshotContext,
+        proxy: ProxyServer,
+        logger: Logger,
+    ): AutoCloseable?
 }
 
 @Plugin(
@@ -44,13 +59,21 @@ class GroundsPermissionsPlugin
 internal constructor(
     private val proxy: ProxyServer,
     private val logger: Logger,
-    private val runtimeInitializer: VelocityPermissionsRuntimeInitializer,
+    private val environmentProvider: () -> Map<String, String>,
+    private val runtimeClientFactory: VelocityPermissionRuntimeClientFactory,
+    private val snapshotInvalidationStarter: VelocityPermissionSnapshotInvalidationStarter,
 ) {
     @Inject
     constructor(
         proxy: ProxyServer,
         logger: Logger,
-    ) : this(proxy, logger, DEFAULT_RUNTIME_INITIALIZER)
+    ) : this(
+        proxy,
+        logger,
+        System::getenv,
+        DEFAULT_RUNTIME_CLIENT_FACTORY,
+        DEFAULT_SNAPSHOT_INVALIDATION_STARTER,
+    )
 
     private var manifestScheduler: ManifestRegistrationScheduler? = null
     private var commandMeta: CommandMeta? = null
@@ -68,12 +91,12 @@ internal constructor(
 
     @Subscribe
     fun onInitialize(@Suppress("UNUSED_PARAMETER") event: ProxyInitializeEvent) {
-        snapshotInvalidationLifecycle.replace { runtimeInitializer.initialize(this) }
+        snapshotInvalidationLifecycle.replace { initializeRuntime() }
     }
 
     private fun initializeRuntime(): AutoCloseable? {
         val config =
-            VelocityPermissionsConfig.fromEnvironment(System.getenv())
+            VelocityPermissionsConfig.fromEnvironment(environmentProvider())
                 ?: run {
                     logger.info(
                         "Permissions plugin disabled (plugin=plugin-permissions, reason=not_configured)"
@@ -81,8 +104,7 @@ internal constructor(
                     return null
                 }
         val runtimeStatus = PermissionRuntimeStatus()
-        val runtimeClient =
-            HttpPermissionRuntimeClient(config = config.service, status = runtimeStatus)
+        val runtimeClient = runtimeClientFactory.create(config.service, runtimeStatus)
         val manifestScheduler =
             ManifestRegistrationScheduler(client = runtimeClient, status = runtimeStatus)
         this.manifestScheduler = manifestScheduler
@@ -194,7 +216,7 @@ internal constructor(
         registerActivePermissionManifests(manifestScheduler, config)
 
         val snapshotInvalidations =
-            VelocityPermissionSnapshotInvalidations.start(
+            snapshotInvalidationStarter.start(
                 config = config.snapshotInvalidations,
                 snapshots = snapshots,
                 runtimeClient = runtimeClient,
@@ -267,9 +289,27 @@ internal constructor(
     }
 
     private companion object {
-        val DEFAULT_RUNTIME_INITIALIZER = VelocityPermissionsRuntimeInitializer { plugin ->
-            plugin.initializeRuntime()
-        }
+        val DEFAULT_RUNTIME_CLIENT_FACTORY =
+            VelocityPermissionRuntimeClientFactory { config, status ->
+                HttpPermissionRuntimeClient(config = config, status = status)
+            }
+        val DEFAULT_SNAPSHOT_INVALIDATION_STARTER =
+            VelocityPermissionSnapshotInvalidationStarter {
+                config,
+                snapshots,
+                runtimeClient,
+                context,
+                proxy,
+                logger ->
+                VelocityPermissionSnapshotInvalidations.start(
+                    config = config,
+                    snapshots = snapshots,
+                    runtimeClient = runtimeClient,
+                    context = context,
+                    proxy = proxy,
+                    logger = logger,
+                )
+            }
     }
 }
 
