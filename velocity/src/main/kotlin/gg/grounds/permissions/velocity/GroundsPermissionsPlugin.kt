@@ -24,8 +24,13 @@ import gg.grounds.permissions.client.PermissionServiceConfig
 import gg.grounds.permissions.client.PermissionSnapshotContext
 import gg.grounds.permissions.client.SnapshotUnavailableException
 import gg.grounds.permissions.invalidation.PermissionSnapshotInvalidationConfig
+import gg.grounds.permissions.invalidation.PermissionSnapshotInvalidationLifecycle
 import java.util.concurrent.TimeUnit
 import org.slf4j.Logger
+
+internal fun interface VelocityPermissionsRuntimeInitializer {
+    fun initialize(plugin: GroundsPermissionsPlugin): AutoCloseable?
+}
 
 @Plugin(
     id = "plugin-permissions",
@@ -36,13 +41,23 @@ import org.slf4j.Logger
     url = "https://github.com/groundsgg/plugin-permissions",
 )
 class GroundsPermissionsPlugin
-@Inject
-constructor(private val proxy: ProxyServer, private val logger: Logger) {
+internal constructor(
+    private val proxy: ProxyServer,
+    private val logger: Logger,
+    private val runtimeInitializer: VelocityPermissionsRuntimeInitializer,
+) {
+    @Inject
+    constructor(
+        proxy: ProxyServer,
+        logger: Logger,
+    ) : this(proxy, logger, DEFAULT_RUNTIME_INITIALIZER)
+
     private var manifestScheduler: ManifestRegistrationScheduler? = null
     private var commandMeta: CommandMeta? = null
     private var refreshTask: ScheduledTask? = null
     private var permissions: Permissions? = null
-    private var snapshotInvalidations: VelocityPermissionSnapshotInvalidations? = null
+    private val snapshotInvalidationLifecycle =
+        PermissionSnapshotInvalidationLifecycle(runtime = "velocity", logger = logger)
 
     init {
         logger.info(
@@ -52,14 +67,18 @@ constructor(private val proxy: ProxyServer, private val logger: Logger) {
     }
 
     @Subscribe
-    fun onInitialize(event: ProxyInitializeEvent) {
+    fun onInitialize(@Suppress("UNUSED_PARAMETER") event: ProxyInitializeEvent) {
+        snapshotInvalidationLifecycle.replace { runtimeInitializer.initialize(this) }
+    }
+
+    private fun initializeRuntime(): AutoCloseable? {
         val config =
             VelocityPermissionsConfig.fromEnvironment(System.getenv())
                 ?: run {
                     logger.info(
                         "Permissions plugin disabled (plugin=plugin-permissions, reason=not_configured)"
                     )
-                    return
+                    return null
                 }
         val runtimeStatus = PermissionRuntimeStatus()
         val runtimeClient =
@@ -77,16 +96,6 @@ constructor(private val proxy: ProxyServer, private val logger: Logger) {
                 context = config.context,
             )
         proxy.eventManager.register(this, listener)
-
-        snapshotInvalidations =
-            VelocityPermissionSnapshotInvalidations.start(
-                config = config.snapshotInvalidations,
-                snapshots = snapshots,
-                runtimeClient = runtimeClient,
-                context = config.context,
-                proxy = proxy,
-                logger = logger,
-            )
 
         val refreshSweep =
             PermissionSnapshotRefreshSweep(
@@ -184,12 +193,23 @@ constructor(private val proxy: ProxyServer, private val logger: Logger) {
 
         registerActivePermissionManifests(manifestScheduler, config)
 
+        val snapshotInvalidations =
+            VelocityPermissionSnapshotInvalidations.start(
+                config = config.snapshotInvalidations,
+                snapshots = snapshots,
+                runtimeClient = runtimeClient,
+                context = config.context,
+                proxy = proxy,
+                logger = logger,
+            )
+
         logger.info(
             "Permissions plugin configured successfully (serviceUrl={}, serverType={}, serverId={})",
             config.service.serviceUri,
             config.context.serverType ?: "none",
             config.context.serverId ?: "none",
         )
+        return snapshotInvalidations
     }
 
     @Subscribe
@@ -199,14 +219,13 @@ constructor(private val proxy: ProxyServer, private val logger: Logger) {
 
     @Subscribe
     fun onShutdown(event: ProxyShutdownEvent) {
+        snapshotInvalidationLifecycle.close()
         commandMeta?.let(proxy.commandManager::unregister)
         commandMeta = null
         refreshTask?.cancel()
         refreshTask = null
         manifestScheduler?.close()
         manifestScheduler = null
-        snapshotInvalidations?.close()
-        snapshotInvalidations = null
         permissions = null
     }
 
@@ -244,6 +263,12 @@ constructor(private val proxy: ProxyServer, private val logger: Logger) {
                 sourceVersion = collected.origin.version,
                 context = config.context,
             )
+        }
+    }
+
+    private companion object {
+        val DEFAULT_RUNTIME_INITIALIZER = VelocityPermissionsRuntimeInitializer { plugin ->
+            plugin.initializeRuntime()
         }
     }
 }

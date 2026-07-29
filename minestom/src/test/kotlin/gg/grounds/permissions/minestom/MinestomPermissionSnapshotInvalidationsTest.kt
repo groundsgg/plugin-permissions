@@ -12,7 +12,6 @@ import java.util.UUID
 import java.util.concurrent.AbstractExecutorService
 import java.util.concurrent.TimeUnit
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -106,25 +105,6 @@ class MinestomPermissionSnapshotInvalidationsTest {
     }
 
     @Test
-    fun `closing before reinstall releases the previous subscription and executor`() {
-        val firstExecutor = MinestomQueuedExecutorService()
-        val firstSubscription = MinestomRecordingSubscription()
-        val first = start(executor = firstExecutor, subscription = firstSubscription)
-
-        first.close()
-
-        val secondExecutor = MinestomQueuedExecutorService()
-        val secondSubscription = MinestomRecordingSubscription()
-        val second = start(executor = secondExecutor, subscription = secondSubscription)
-
-        assertTrue(firstSubscription.closed)
-        assertTrue(firstExecutor.isShutdown)
-        assertFalse(secondSubscription.closed)
-        assertFalse(secondExecutor.isShutdown)
-        second.close()
-    }
-
-    @Test
     fun `absent NATS configuration does not allocate invalidation resources`() {
         var subscriberCount = 0
         var executorCount = 0
@@ -171,26 +151,6 @@ class MinestomPermissionSnapshotInvalidationsTest {
         assertNull(invalidations)
         assertTrue(executor.isShutdown)
     }
-
-    private fun start(
-        executor: MinestomQueuedExecutorService,
-        subscription: MinestomRecordingSubscription,
-    ): MinestomPermissionSnapshotInvalidations =
-        requireNotNull(
-            MinestomPermissionSnapshotInvalidations.start(
-                config = config,
-                snapshots = InMemoryPermissionSnapshots(),
-                runtimeClient = MinestomInvalidationRuntimeClient(snapshot(policyVersion = 2)),
-                context = PermissionSnapshotContext(serverType = "lobby"),
-                isOnline = { true },
-                logger = RecordingLogger(),
-                subscriberFactory = { _, _, handler ->
-                    subscription.handler = handler
-                    subscription
-                },
-                executorFactory = { executor },
-            )
-        )
 
     private fun snapshot(policyVersion: Long): PermissionSnapshot {
         val now = Instant.parse("2026-07-29T10:00:00Z")

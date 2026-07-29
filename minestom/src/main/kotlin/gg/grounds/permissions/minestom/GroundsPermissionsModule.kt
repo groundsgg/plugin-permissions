@@ -13,6 +13,7 @@ import gg.grounds.permissions.client.PermissionServiceConfig
 import gg.grounds.permissions.client.PermissionSnapshotContext
 import gg.grounds.permissions.client.SnapshotUnavailableException
 import gg.grounds.permissions.invalidation.PermissionSnapshotInvalidationConfig
+import gg.grounds.permissions.invalidation.PermissionSnapshotInvalidationLifecycle
 import gg.grounds.runtime.GroundsModule
 import gg.grounds.runtime.GroundsServerContext
 import java.time.Clock
@@ -25,19 +26,35 @@ import net.minestom.server.event.EventNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-class GroundsPermissionsModule(private val clock: Clock = Clock.systemUTC()) : GroundsModule {
+internal fun interface MinestomPermissionsRuntimeInstaller {
+    fun install(module: GroundsPermissionsModule, context: GroundsServerContext): AutoCloseable?
+}
+
+class GroundsPermissionsModule
+internal constructor(
+    private val runtimeInstaller: MinestomPermissionsRuntimeInstaller,
+    private val clock: Clock = Clock.systemUTC(),
+) : GroundsModule {
+    constructor() : this(DEFAULT_RUNTIME_INSTALLER, Clock.systemUTC())
+
+    constructor(clock: Clock) : this(DEFAULT_RUNTIME_INSTALLER, clock)
+
     private val logger: Logger = LoggerFactory.getLogger(GroundsPermissionsModule::class.java)
     private val snapshots = InMemoryPermissionSnapshots()
     private var manifestScheduler: ManifestRegistrationScheduler? = null
     private var refreshExecutor: ScheduledExecutorService? = null
     private var eventNode: EventNode<Event>? = null
-    private var snapshotInvalidations: MinestomPermissionSnapshotInvalidations? = null
+    private val snapshotInvalidationLifecycle =
+        PermissionSnapshotInvalidationLifecycle(runtime = "minestom", logger = logger)
 
     override val id: String = MODULE_ID
 
     override fun install(ctx: GroundsServerContext) {
         stop()
+        snapshotInvalidationLifecycle.replace { runtimeInstaller.install(this, ctx) }
+    }
 
+    private fun installRuntime(ctx: GroundsServerContext): AutoCloseable? {
         val config =
             MinestomPermissionsConfig.fromEnvironment(
                 environment = System.getenv(),
@@ -48,7 +65,7 @@ class GroundsPermissionsModule(private val clock: Clock = Clock.systemUTC()) : G
                         "Permissions module disabled (serverType={}, reason=not_configured)",
                         ctx.serverType.name.lowercase(),
                     )
-                    return
+                    return null
                 }
         val runtimeStatus = PermissionRuntimeStatus()
         val runtimeClient =
@@ -68,7 +85,7 @@ class GroundsPermissionsModule(private val clock: Clock = Clock.systemUTC()) : G
                 client = runtimeClient,
                 context = config.context,
             )
-        snapshotInvalidations =
+        val snapshotInvalidations =
             MinestomPermissionSnapshotInvalidations.start(
                 config = config.snapshotInvalidations,
                 snapshots = snapshots,
@@ -143,15 +160,15 @@ class GroundsPermissionsModule(private val clock: Clock = Clock.systemUTC()) : G
             config.context.serverId ?: "none",
             config.service.serviceUri,
         )
+        return snapshotInvalidations
     }
 
     override fun stop() {
+        snapshotInvalidationLifecycle.close()
         eventNode?.let(MinecraftServer.getGlobalEventHandler()::removeChild)
         eventNode = null
         manifestScheduler?.close()
         manifestScheduler = null
-        snapshotInvalidations?.close()
-        snapshotInvalidations = null
         refreshExecutor?.shutdownNow()
         refreshExecutor = null
     }
@@ -181,6 +198,11 @@ class GroundsPermissionsModule(private val clock: Clock = Clock.systemUTC()) : G
 
     companion object {
         const val MODULE_ID: String = "grounds.permissions"
+
+        private val DEFAULT_RUNTIME_INSTALLER =
+            MinestomPermissionsRuntimeInstaller { module, context ->
+                module.installRuntime(context)
+            }
     }
 }
 
