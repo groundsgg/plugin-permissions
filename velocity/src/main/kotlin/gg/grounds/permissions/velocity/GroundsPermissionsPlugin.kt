@@ -23,6 +23,7 @@ import gg.grounds.permissions.client.PermissionRuntimeStatus
 import gg.grounds.permissions.client.PermissionServiceConfig
 import gg.grounds.permissions.client.PermissionSnapshotContext
 import gg.grounds.permissions.client.SnapshotUnavailableException
+import gg.grounds.permissions.invalidation.PermissionSnapshotInvalidationConfig
 import java.util.concurrent.TimeUnit
 import org.slf4j.Logger
 
@@ -41,6 +42,7 @@ constructor(private val proxy: ProxyServer, private val logger: Logger) {
     private var commandMeta: CommandMeta? = null
     private var refreshTask: ScheduledTask? = null
     private var permissions: Permissions? = null
+    private var snapshotInvalidations: VelocityPermissionSnapshotInvalidations? = null
 
     init {
         logger.info(
@@ -75,6 +77,16 @@ constructor(private val proxy: ProxyServer, private val logger: Logger) {
                 context = config.context,
             )
         proxy.eventManager.register(this, listener)
+
+        snapshotInvalidations =
+            VelocityPermissionSnapshotInvalidations.start(
+                config = config.snapshotInvalidations,
+                snapshots = snapshots,
+                runtimeClient = runtimeClient,
+                context = config.context,
+                proxy = proxy,
+                logger = logger,
+            )
 
         val refreshSweep =
             PermissionSnapshotRefreshSweep(
@@ -193,6 +205,8 @@ constructor(private val proxy: ProxyServer, private val logger: Logger) {
         refreshTask = null
         manifestScheduler?.close()
         manifestScheduler = null
+        snapshotInvalidations?.close()
+        snapshotInvalidations = null
         permissions = null
     }
 
@@ -238,6 +252,7 @@ data class VelocityPermissionsConfig(
     val service: PermissionServiceConfig,
     val context: PermissionSnapshotContext,
     val refreshIntervalSeconds: Long,
+    val snapshotInvalidations: PermissionSnapshotInvalidationConfig? = null,
 ) {
     companion object {
         fun fromEnvironment(environment: Map<String, String>): VelocityPermissionsConfig? {
@@ -267,6 +282,8 @@ data class VelocityPermissionsConfig(
                     environment["PERMISSIONS_REFRESH_INTERVAL_SECONDS"]
                         ?.takeIf { it.isNotBlank() }
                         ?.toLong() ?: DEFAULT_REFRESH_INTERVAL_SECONDS,
+                snapshotInvalidations =
+                    PermissionSnapshotInvalidationConfig.fromEnvironment(environment),
             )
         }
 

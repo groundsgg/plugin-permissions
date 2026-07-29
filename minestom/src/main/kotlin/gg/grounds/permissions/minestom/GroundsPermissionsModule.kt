@@ -12,6 +12,7 @@ import gg.grounds.permissions.client.PermissionRuntimeStatus
 import gg.grounds.permissions.client.PermissionServiceConfig
 import gg.grounds.permissions.client.PermissionSnapshotContext
 import gg.grounds.permissions.client.SnapshotUnavailableException
+import gg.grounds.permissions.invalidation.PermissionSnapshotInvalidationConfig
 import gg.grounds.runtime.GroundsModule
 import gg.grounds.runtime.GroundsServerContext
 import java.time.Clock
@@ -30,6 +31,7 @@ class GroundsPermissionsModule(private val clock: Clock = Clock.systemUTC()) : G
     private var manifestScheduler: ManifestRegistrationScheduler? = null
     private var refreshExecutor: ScheduledExecutorService? = null
     private var eventNode: EventNode<Event>? = null
+    private var snapshotInvalidations: MinestomPermissionSnapshotInvalidations? = null
 
     override val id: String = MODULE_ID
 
@@ -65,6 +67,14 @@ class GroundsPermissionsModule(private val clock: Clock = Clock.systemUTC()) : G
                 snapshots = snapshots,
                 client = runtimeClient,
                 context = config.context,
+            )
+        snapshotInvalidations =
+            MinestomPermissionSnapshotInvalidations.start(
+                config = config.snapshotInvalidations,
+                snapshots = snapshots,
+                runtimeClient = runtimeClient,
+                context = config.context,
+                logger = logger,
             )
         val refreshSweep =
             PermissionSnapshotRefreshSweep(
@@ -140,6 +150,8 @@ class GroundsPermissionsModule(private val clock: Clock = Clock.systemUTC()) : G
         eventNode = null
         manifestScheduler?.close()
         manifestScheduler = null
+        snapshotInvalidations?.close()
+        snapshotInvalidations = null
         refreshExecutor?.shutdownNow()
         refreshExecutor = null
     }
@@ -176,6 +188,7 @@ data class MinestomPermissionsConfig(
     val service: PermissionServiceConfig,
     val context: PermissionSnapshotContext,
     val refreshIntervalSeconds: Long,
+    val snapshotInvalidations: PermissionSnapshotInvalidationConfig? = null,
 ) {
     companion object {
         fun fromEnvironment(
@@ -208,6 +221,8 @@ data class MinestomPermissionsConfig(
                     environment["PERMISSIONS_REFRESH_INTERVAL_SECONDS"]
                         ?.takeIf { it.isNotBlank() }
                         ?.toLong() ?: DEFAULT_REFRESH_INTERVAL_SECONDS,
+                snapshotInvalidations =
+                    PermissionSnapshotInvalidationConfig.fromEnvironment(environment),
             )
         }
 
