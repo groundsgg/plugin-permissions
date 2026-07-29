@@ -18,5 +18,6 @@ dependencies {
     implementation("org.slf4j:slf4j-api")
 
     testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("org.mockito.kotlin:mockito-kotlin")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }

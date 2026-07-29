@@ -3,6 +3,7 @@ package gg.grounds.permissions.velocity
 import java.net.URI
 import java.nio.file.Path
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
@@ -24,6 +25,8 @@ class VelocityPermissionsConfigTest {
                     "GROUNDS_PERMISSION_SERVER_ID" to "proxy-1",
                     "GROUNDS_PERMISSION_ENVIRONMENT" to "stage",
                     "PERMISSIONS_REFRESH_INTERVAL_SECONDS" to "30",
+                    "NATS_URL" to "nats://nats.nats.svc.cluster.local:4222",
+                    "GROUNDS_TOKEN_FILE" to "/var/run/secrets/grounds/token",
                 )
             )
 
@@ -37,6 +40,29 @@ class VelocityPermissionsConfigTest {
         assertEquals("proxy-1", config.context.serverId)
         assertEquals("stage", config.context.environment)
         assertEquals(30, config.refreshIntervalSeconds)
+        assertNotNull(config.snapshotInvalidations)
+        assertEquals(
+            "nats://nats.nats.svc.cluster.local:4222",
+            config.snapshotInvalidations?.natsUrl,
+        )
+        assertEquals(
+            Path.of("/var/run/secrets/grounds/token"),
+            config.snapshotInvalidations?.tokenFile,
+        )
+    }
+
+    @Test
+    fun `keeps REST integration enabled when invalidation transport is absent`() {
+        val config =
+            VelocityPermissionsConfig.fromEnvironment(
+                mapOf(
+                    "PERMISSIONS_SERVICE_URL" to "http://service-permissions-runtime:8080",
+                    "PERMISSIONS_TOKEN_FILE" to "/var/run/secrets/grounds/permissions-token",
+                )
+            )
+
+        requireNotNull(config)
+        assertNull(config.snapshotInvalidations)
     }
 
     @Test
