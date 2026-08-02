@@ -26,6 +26,8 @@ import gg.grounds.permissions.client.PermissionSnapshotContext
 import gg.grounds.permissions.client.SnapshotUnavailableException
 import gg.grounds.permissions.invalidation.PermissionSnapshotInvalidationConfig
 import gg.grounds.permissions.invalidation.PermissionSnapshotInvalidationLifecycle
+import gg.grounds.proxy.api.PlayerRoleQuery
+import gg.grounds.proxy.api.ProxyServiceRegistry
 import java.util.concurrent.TimeUnit
 import org.slf4j.Logger
 
@@ -163,6 +165,13 @@ internal constructor(
         val permissions =
             SnapshotPermissions(snapshots, defaultScope = config.context.toCheckScope())
         this.permissions = permissions
+
+        // The rank, published for anyone who draws a name. service-permissions has always sent
+        // prefix/color/sortOrder with the snapshot and this plugin has always cached them, but
+        // nothing could read them without a permissions client of its own -- so a rank was
+        // invisible in chat, in the tab list and in /online. Registering rather than exposing a
+        // static keeps the dependency one-way: consumers ask the registry, not this plugin.
+        ProxyServiceRegistry.register(PlayerRoleQuery::class.java, SnapshotRoleQuery(snapshots))
         loadCommandPermissions()?.let { commandPermissions ->
             val router =
                 PermissionCommandRouter(
@@ -249,6 +258,9 @@ internal constructor(
         manifestScheduler?.close()
         manifestScheduler = null
         permissions = null
+        // Leaving a query behind that answers out of a dead snapshot store would colour names
+        // from whatever was cached when the plugin stopped.
+        ProxyServiceRegistry.unregister(PlayerRoleQuery::class.java)
     }
 
     private fun loadCommandPermissions(): PermissionCommandPermissions? =
