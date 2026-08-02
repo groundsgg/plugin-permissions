@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/groundsgg/plugin-permissions/compare/v0.8.0...v0.9.0) (2026-08-02)
+
+
+### Features
+
+* **permissions:** publish the player's rank so something can draw it ([#26](https://github.com/groundsgg/plugin-permissions/issues/26)) ([217f0f6](https://github.com/groundsgg/plugin-permissions/commit/217f0f6ee6d44c2ed4303a47c2f5556e0a04857e))
+
 ## [0.8.0](https://github.com/groundsgg/plugin-permissions/compare/v0.7.0...v0.8.0) (2026-07-29)
 
 
