@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.1](https://github.com/groundsgg/plugin-permissions/compare/v0.9.0...v0.9.1) (2026-08-02)
+
+
+### Bug Fixes
+
+* **permissions:** declare the proxy dependency, survive without it ([#28](https://github.com/groundsgg/plugin-permissions/issues/28)) ([cff31a4](https://github.com/groundsgg/plugin-permissions/commit/cff31a46e5c8aa6b3f86714058423b5bed601cab))
+
 ## [0.9.0](https://github.com/groundsgg/plugin-permissions/compare/v0.8.0...v0.9.0) (2026-08-02)
 
 
