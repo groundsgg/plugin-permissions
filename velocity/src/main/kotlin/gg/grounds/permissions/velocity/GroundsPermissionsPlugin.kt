@@ -6,6 +6,7 @@ import com.velocitypowered.api.event.Subscribe
 import com.velocitypowered.api.event.permission.PermissionsSetupEvent
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent
+import com.velocitypowered.api.plugin.Dependency
 import com.velocitypowered.api.plugin.Plugin
 import com.velocitypowered.api.proxy.ProxyServer
 import com.velocitypowered.api.scheduler.ScheduledTask
@@ -56,6 +57,11 @@ internal fun interface VelocityPermissionSnapshotInvalidationStarter {
     description = "Loads and caches Minecraft network permission snapshots",
     authors = ["Grounds Development Team and contributors"],
     url = "https://github.com/groundsgg/plugin-permissions",
+    // Optional, and the word is load order rather than need: permissions works perfectly well on a
+    // proxy without plugin-proxy, it just has nowhere to publish the player's rank. Declaring it
+    // makes Velocity start plugin-proxy first, so the registry exists by the time this plugin
+    // writes into it, instead of leaving that to whichever order the directory happened to list.
+    dependencies = [Dependency(id = "plugin-proxy", optional = true)],
 )
 class GroundsPermissionsPlugin
 internal constructor(
@@ -171,7 +177,7 @@ internal constructor(
         // nothing could read them without a permissions client of its own -- so a rank was
         // invisible in chat, in the tab list and in /online. Registering rather than exposing a
         // static keeps the dependency one-way: consumers ask the registry, not this plugin.
-        ProxyServiceRegistry.register(PlayerRoleQuery::class.java, SnapshotRoleQuery(snapshots))
+        publishRoleQuery(snapshots)
         loadCommandPermissions()?.let { commandPermissions ->
             val router =
                 PermissionCommandRouter(
@@ -260,7 +266,33 @@ internal constructor(
         permissions = null
         // Leaving a query behind that answers out of a dead snapshot store would colour names
         // from whatever was cached when the plugin stopped.
-        ProxyServiceRegistry.unregister(PlayerRoleQuery::class.java)
+        withProxyApi("unregister") { ProxyServiceRegistry.unregister(PlayerRoleQuery::class.java) }
+    }
+
+    /**
+     * Publishes the rank query, if there is a proxy API to publish it into.
+     *
+     * `plugin-proxy-api` is compileOnly, so on a proxy without plugin-proxy the registry class
+     * simply is not there. That must cost this plugin its rank publishing and nothing else --
+     * permission checks are the job, and letting a NoClassDefFoundError out of here would take the
+     * command registration below it down as well.
+     */
+    private fun publishRoleQuery(snapshots: InMemoryPermissionSnapshots) {
+        withProxyApi("register") {
+            ProxyServiceRegistry.register(PlayerRoleQuery::class.java, SnapshotRoleQuery(snapshots))
+        }
+    }
+
+    private fun withProxyApi(action: String, block: () -> Unit) {
+        try {
+            block()
+        } catch (error: NoClassDefFoundError) {
+            logger.info(
+                "Player rank not published ({}): plugin-proxy is not loaded (missing={})",
+                action,
+                error.message,
+            )
+        }
     }
 
     private fun loadCommandPermissions(): PermissionCommandPermissions? =
