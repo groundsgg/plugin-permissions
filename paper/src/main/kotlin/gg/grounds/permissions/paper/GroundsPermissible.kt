@@ -10,7 +10,7 @@ import org.bukkit.entity.Player
 import org.bukkit.permissions.Permission
 import org.bukkit.permissions.PermissionAttachment
 import org.bukkit.permissions.PermissionAttachmentInfo
-import org.bukkit.permissions.Permissible
+import org.bukkit.permissions.PermissibleBase
 import org.bukkit.plugin.Plugin
 import org.bukkit.plugin.java.JavaPlugin
 
@@ -18,7 +18,7 @@ class GroundsPermissible(
     private val player: Player,
     private val plugin: JavaPlugin,
     private val permissions: Permissions,
-) : Permissible {
+) : PermissibleBase(player) {
     private val attachments = ConcurrentHashMap.newKeySet<GroundsPermissionAttachment>()
 
     fun importAttachments(attachments: Collection<PermissionAttachment>) {
@@ -103,7 +103,7 @@ class GroundsPermissible(
         return effective
     }
 
-    fun clearPermissions() = currentAttachments().forEach(::removeAttachment)
+    override fun clearPermissions() = currentAttachments().forEach(::removeAttachment)
 
     internal fun attachmentChanged(attachment: GroundsPermissionAttachment) {
         if (attachments.contains(attachment)) recalculatePermissions()
