@@ -138,7 +138,7 @@ class PaperPermissionsRuntimeTest {
         assertNull(runtime.snapshotForTest(id))
     }
 
-    @Test fun `delayed quit from an old session preserves a reconnected session`() {
+    @Test fun `delayed quit retires an old session while preserving a reconnected session`() {
         val id = UUID.randomUUID()
         val oldSession = TestPermissionPlayer(id)
         val newSession = TestPermissionPlayer(id)
@@ -153,8 +153,24 @@ class PaperPermissionsRuntimeTest {
         requireNotNull(platform.quit).invoke(oldSession)
 
         assertEquals(listOf(oldSession, newSession), platform.injected)
-        assertTrue(platform.retired.isEmpty())
+        assertEquals(listOf(oldSession), platform.retired)
         assertNotNull(runtime.snapshotForTest(id))
+    }
+
+    @Test fun `startup skips an online player when its snapshot is unavailable`() {
+        val id = UUID.randomUUID()
+        val player = TestPermissionPlayer(id)
+        val platform = RecordingPlatform(onlinePlayers = setOf(player))
+
+        runtime(
+                platform,
+                environment(),
+                Client { throw SnapshotUnavailableException(SnapshotFailureReason.UNAVAILABLE) },
+            )
+            .start()
+
+        assertTrue(platform.injected.isEmpty())
+        assertNull(platform.permissions?.snapshot(id))
     }
 
     @Test fun `restart reinjects an online player with a valid snapshot`() {

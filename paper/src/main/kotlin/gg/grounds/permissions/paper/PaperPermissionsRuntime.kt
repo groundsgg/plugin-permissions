@@ -209,8 +209,8 @@ internal constructor(
     private fun rollbackLogin(player: PaperPermissionPlayer) = retireSession(player)
 
     private fun retireSession(player: PaperPermissionPlayer) {
-        if (activeSessions[player.playerId]?.session !== player.session) return
         platform.retirePermissions(player)
+        if (activeSessions[player.playerId]?.session !== player.session) return
         activeSessions.remove(player.playerId)
         snapshots.merge(emptyMap()) { candidateId, _ -> candidateId == player.playerId }
     }
