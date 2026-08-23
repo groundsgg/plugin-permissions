@@ -1,10 +1,12 @@
 package gg.grounds.permissions.paper
 
 import java.lang.reflect.Field
-import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
 import org.bukkit.entity.Player
+import org.bukkit.permissions.Permission
+import org.bukkit.permissions.PermissionAttachment
+import org.bukkit.permissions.PermissionAttachmentInfo
 import org.bukkit.permissions.PermissibleBase
+import org.bukkit.plugin.Plugin
 
 class PaperPermissibleInjectionException(message: String, cause: Throwable? = null) :
     IllegalStateException(message, cause)
@@ -12,13 +14,14 @@ class PaperPermissibleInjectionException(message: String, cause: Throwable? = nu
 class PaperPermissibleInjector(
     private val target: (Player) -> Any = { it },
 ) {
-    private val originals = ConcurrentHashMap<UUID, PermissibleBase>()
+    private val managed = mutableMapOf<java.util.UUID, ManagedPermissible>()
 
     fun validate(playerClass: Class<*>) {
         PermissibleFieldAccess.locate(playerClass)
         PermissibleBaseStateAccess.validated()
     }
 
+    @Synchronized
     fun inject(player: Player, permissible: GroundsPermissible) {
         val holder = target(player)
         val access = PermissibleFieldAccess.locate(holder.javaClass)
@@ -34,7 +37,7 @@ class PaperPermissibleInjector(
                 }
         }
 
-        if (originals.putIfAbsent(player.uniqueId, current) != null) {
+        if (managed.containsKey(player.uniqueId)) {
             throw failure(player, "Grounds permissible already injected")
         }
         try {
@@ -42,30 +45,36 @@ class PaperPermissibleInjector(
             permissible.importAttachments(state.attachments(current))
             state.clear(current)
             access.write(holder, permissible)
+            managed[player.uniqueId] = ManagedPermissible(current, permissible)
         } catch (exception: PaperPermissibleInjectionException) {
-            originals.remove(player.uniqueId, current)
             throw exception
         } catch (exception: ReflectiveOperationException) {
-            originals.remove(player.uniqueId, current)
             throw failure(player, "Could not install Grounds permissible", exception)
         }
     }
 
+    @Synchronized
     fun restore(player: Player) {
-        val original = originals.remove(player.uniqueId) ?: return
+        val state = managed[player.uniqueId] ?: return
         val holder = target(player)
         val access = PermissibleFieldAccess.locate(holder.javaClass)
         val current = access.read(holder)
-        if (current is GroundsPermissible) current.clearPermissions()
-        access.write(holder, original)
+        if (current !== state.injected) throw foreignReplacement(player, current)
+        current.clearPermissions()
+        access.write(holder, state.original)
+        managed.remove(player.uniqueId)
     }
 
+    @Synchronized
     fun retire(player: Player) {
-        originals.remove(player.uniqueId)
+        val state = managed[player.uniqueId] ?: return
         val holder = target(player)
         val access = PermissibleFieldAccess.locate(holder.javaClass)
-        (access.read(holder) as? GroundsPermissible)?.clearPermissions()
+        val current = access.read(holder)
+        if (current !== state.injected) throw foreignReplacement(player, current)
+        current.clearPermissions()
         access.write(holder, RetiredPermissible)
+        managed.remove(player.uniqueId)
     }
 
     private fun failure(player: Player, detail: String, cause: Throwable? = null) =
@@ -74,10 +83,48 @@ class PaperPermissibleInjector(
             cause,
         )
 
+    private fun foreignReplacement(player: Player, current: PermissibleBase): Nothing =
+        throw failure(player, "Another permission provider replaced Grounds permissible with ${current.javaClass.name}")
+
+    private data class ManagedPermissible(
+        val original: PermissibleBase,
+        val injected: GroundsPermissible,
+    )
+
     private object RetiredPermissible : PermissibleBase(null) {
+        override fun isOp(): Boolean = false
+
+        override fun setOp(value: Boolean) = Unit
+
+        override fun isPermissionSet(permission: Permission): Boolean = false
+
         override fun isPermissionSet(permission: String): Boolean = false
 
+        override fun hasPermission(permission: Permission): Boolean = false
+
         override fun hasPermission(permission: String): Boolean = false
+
+        override fun addAttachment(plugin: Plugin): PermissionAttachment = PermissionAttachment(plugin, this)
+
+        override fun addAttachment(plugin: Plugin, name: String, value: Boolean): PermissionAttachment =
+            PermissionAttachment(plugin, this)
+
+        override fun addAttachment(plugin: Plugin, ticks: Int): PermissionAttachment? = null
+
+        override fun addAttachment(
+            plugin: Plugin,
+            name: String,
+            value: Boolean,
+            ticks: Int,
+        ): PermissionAttachment? = null
+
+        override fun removeAttachment(attachment: PermissionAttachment) = Unit
+
+        override fun recalculatePermissions() = Unit
+
+        override fun clearPermissions() = Unit
+
+        override fun getEffectivePermissions(): Set<PermissionAttachmentInfo> = emptySet()
     }
 }
 

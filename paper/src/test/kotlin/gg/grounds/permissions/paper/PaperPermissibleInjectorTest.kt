@@ -1,9 +1,14 @@
 package gg.grounds.permissions.paper
 
 import gg.grounds.permissions.SnapshotPermissions
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import org.bukkit.permissions.PermissibleBase
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -60,6 +65,46 @@ class PaperPermissibleInjectorTest {
     }
 
     @Test
+    fun `restore preserves a foreign permissible and retains the original for recovery`() {
+        val player = player()
+        val original = PermissibleBase(player)
+        val holder = TestPlayer(original)
+        val access = PermissibleFieldAccess.locate(holder.javaClass)
+        val injector = PaperPermissibleInjector { holder }
+        val grounds = GroundsPermissible(player, plugin(), SnapshotPermissions(emptyMap()))
+        injector.inject(player, grounds)
+        val foreign = CustomPermissible()
+        access.write(holder, foreign)
+
+        assertThrows(PaperPermissibleInjectionException::class.java) { injector.restore(player) }
+        assertSame(foreign, access.read(holder))
+
+        access.write(holder, grounds)
+        injector.restore(player)
+        assertSame(original, access.read(holder))
+    }
+
+    @Test
+    fun `retire preserves a foreign permissible and retains the original for recovery`() {
+        val player = player()
+        val original = PermissibleBase(player)
+        val holder = TestPlayer(original)
+        val access = PermissibleFieldAccess.locate(holder.javaClass)
+        val injector = PaperPermissibleInjector { holder }
+        val grounds = GroundsPermissible(player, plugin(), SnapshotPermissions(emptyMap()))
+        injector.inject(player, grounds)
+        val foreign = CustomPermissible()
+        access.write(holder, foreign)
+
+        assertThrows(PaperPermissibleInjectionException::class.java) { injector.retire(player) }
+        assertSame(foreign, access.read(holder))
+
+        access.write(holder, grounds)
+        injector.retire(player)
+        assertTrue(access.read(holder) !is GroundsPermissible)
+    }
+
+    @Test
     fun `inject rejects duplicate Grounds permissible`() {
         val player = player()
         val holder = TestPlayer(PermissibleBase(player))
@@ -99,6 +144,47 @@ class PaperPermissibleInjectorTest {
         val retired = PermissibleFieldAccess.locate(holder.javaClass).read(holder)
         assertTrue(retired !is GroundsPermissible)
         assertEquals(false, retired.hasPermission("grounds.anything"))
+        retired.addAttachment(plugin(), "grounds.anything", true)
+        retired.recalculatePermissions()
+        retired.clearPermissions()
+        assertTrue(retired.effectivePermissions.isEmpty())
+        assertFalse(retired.hasPermission("grounds.anything"))
+    }
+
+    @Test
+    fun `lifecycle operations on one injector are serialized`() {
+        val player = player()
+        val holder = TestPlayer(PermissibleBase(player))
+        val targetCalls = AtomicInteger()
+        val injectEntered = CountDownLatch(1)
+        val releaseInject = CountDownLatch(1)
+        val retireEntered = CountDownLatch(1)
+        val failures = AtomicReference<Throwable?>()
+        val injector =
+            PaperPermissibleInjector {
+                when (targetCalls.incrementAndGet()) {
+                    1 -> {
+                        injectEntered.countDown()
+                        releaseInject.await()
+                    }
+                    2 -> retireEntered.countDown()
+                }
+                holder
+            }
+        val grounds = GroundsPermissible(player, plugin(), SnapshotPermissions(emptyMap()))
+        val injecting = Thread { runCatching { injector.inject(player, grounds) }.onFailure(failures::set) }
+        val retiring = Thread { runCatching { injector.retire(player) }.onFailure(failures::set) }
+
+        injecting.start()
+        assertTrue(injectEntered.await(1, TimeUnit.SECONDS))
+        retiring.start()
+        assertFalse(retireEntered.await(100, TimeUnit.MILLISECONDS))
+        releaseInject.countDown()
+        injecting.join()
+        retiring.join()
+
+        assertEquals(null, failures.get())
+        assertTrue(PermissibleFieldAccess.locate(holder.javaClass).read(holder) !is GroundsPermissible)
     }
 
     private fun player(): org.bukkit.entity.Player {
@@ -109,7 +195,7 @@ class PaperPermissibleInjectorTest {
 
     private fun plugin() = server.pluginManager.plugins.single() as GroundsPermissionsPlugin
 
-    private open class TestHuman(protected var perm: PermissibleBase)
+    private open class TestHuman(protected val perm: PermissibleBase)
 
     private class TestPlayer(perm: PermissibleBase) : TestHuman(perm)
 
