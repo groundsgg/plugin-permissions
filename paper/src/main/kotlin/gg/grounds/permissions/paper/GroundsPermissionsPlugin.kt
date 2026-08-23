@@ -2,6 +2,7 @@ package gg.grounds.permissions.paper
 
 import gg.grounds.permissions.Permissions
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import net.kyori.adventure.text.Component
 import org.bukkit.event.EventHandler
 import org.bukkit.event.HandlerList
@@ -31,9 +32,12 @@ internal class BukkitPaperPermissionPlatform(private val plugin: JavaPlugin) :
     PaperPermissionPlatform {
     private var servicePublished = false
     private val attachments = mutableMapOf<UUID, PermissionAttachment>()
+    private val onlinePlayerIds =
+        ConcurrentHashMap.newKeySet<UUID>().also { ids ->
+            ids += plugin.server.onlinePlayers.map { it.uniqueId }
+        }
 
-    override fun onlinePlayerIds(): Set<UUID> =
-        plugin.server.onlinePlayers.mapTo(mutableSetOf()) { it.uniqueId }
+    override fun onlinePlayerIds(): Set<UUID> = onlinePlayerIds.toSet()
 
     override fun registerPreLogin(handler: (UUID) -> PermissionLoginResult): AutoCloseable =
         registerListener(
@@ -54,14 +58,22 @@ internal class BukkitPaperPermissionPlatform(private val plugin: JavaPlugin) :
     override fun registerQuit(handler: (UUID) -> Unit): AutoCloseable =
         registerListener(
             object : Listener {
-                @EventHandler fun onQuit(event: PlayerQuitEvent) = handler(event.player.uniqueId)
+                @EventHandler
+                fun onQuit(event: PlayerQuitEvent) {
+                    onlinePlayerIds.remove(event.player.uniqueId)
+                    handler(event.player.uniqueId)
+                }
             }
         )
 
     override fun registerPlayerJoin(handler: (UUID) -> Unit): AutoCloseable =
         registerListener(
             object : Listener {
-                @EventHandler fun onJoin(event: PlayerJoinEvent) = handler(event.player.uniqueId)
+                @EventHandler
+                fun onJoin(event: PlayerJoinEvent) {
+                    onlinePlayerIds.add(event.player.uniqueId)
+                    handler(event.player.uniqueId)
+                }
             }
         )
 

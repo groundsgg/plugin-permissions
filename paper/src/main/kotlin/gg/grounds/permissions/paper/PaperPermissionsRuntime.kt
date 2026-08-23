@@ -272,8 +272,7 @@ data class PaperPermissionsConfig(
                         ?: error("Missing required environment variable PERMISSIONS_TOKEN_FILE"),
                 ),
                 PermissionSnapshotContext(
-                    environment["GROUNDS_PERMISSION_SERVER_TYPE"]?.takeIf(String::isNotBlank)
-                        ?: "paper",
+                    environment["GROUNDS_PERMISSION_SERVER_TYPE"]?.takeIf(String::isNotBlank),
                     environment["GROUNDS_PERMISSION_SERVER_ID"]?.takeIf(String::isNotBlank),
                     environment["GROUNDS_PERMISSION_ENVIRONMENT"]?.takeIf(String::isNotBlank),
                 ),
