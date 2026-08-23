@@ -25,6 +25,7 @@ class BukkitPermissionAttachmentIntegrationTest {
         val server = MockBukkit.mock()
         val plugin = MockBukkit.load(GroundsPermissionsPlugin::class.java)
         val player = server.addPlayer()
+        server.pluginManager.addPermission(Permission("ground.test.exact"))
         server.pluginManager.addPermission(Permission("ground.test.read"))
         server.pluginManager.addPermission(Permission("ground.test.delete"))
         server.pluginManager.addPermission(Permission("ground.test.scope"))
@@ -37,6 +38,7 @@ class BukkitPermissionAttachmentIntegrationTest {
                 now,
                 now.plusSeconds(60),
                 listOf(
+                    grant(PermissionEffect.ALLOW, "ground.test.exact"),
                     grant(PermissionEffect.ALLOW, "ground.test.*"),
                     grant(
                         PermissionEffect.ALLOW,
@@ -65,11 +67,13 @@ class BukkitPermissionAttachmentIntegrationTest {
         val platform = BukkitPaperPermissionPlatform(plugin)
         platform.materializePermissions(player.uniqueId, permissions)
 
+        assertTrue(player.hasPermission("ground.test.exact"))
         assertTrue(player.hasPermission("ground.test.read"))
         assertFalse(player.hasPermission("ground.test.delete"))
         assertTrue(player.hasPermission("ground.test.scope"))
         platform.removeAllMaterializedPermissions()
         assertFalse(player.hasPermission("ground.test.read"))
+        assertTrue(player.effectivePermissions.none { it.permission == "ground.test.read" })
     }
 
     private fun grant(
