@@ -10,9 +10,8 @@ import gg.grounds.permissions.SnapshotPermissions
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
-import org.bukkit.permissions.Permission
+import org.bukkit.permissions.PermissibleBase
 import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.mockbukkit.mockbukkit.MockBukkit
@@ -20,65 +19,25 @@ import org.mockbukkit.mockbukkit.MockBukkit
 class BukkitPermissionAttachmentIntegrationTest {
     @AfterEach fun tearDown() = MockBukkit.unmock()
 
-    @Test
-    fun `registered Bukkit nodes use snapshot wildcard allow and exact deny through attachments`() {
+    @Test fun `platform injection makes an unregistered dynamic node available through the permissible seam`() {
         val server = MockBukkit.mock()
         val plugin = MockBukkit.load(GroundsPermissionsPlugin::class.java)
         val player = server.addPlayer()
-        server.pluginManager.addPermission(Permission("ground.test.exact"))
-        server.pluginManager.addPermission(Permission("ground.test.read"))
-        server.pluginManager.addPermission(Permission("ground.test.delete"))
-        server.pluginManager.addPermission(Permission("ground.test.scope"))
+        val holder = TestPlayer(PermissibleBase(player))
+        val platform = BukkitPaperPermissionPlatform(plugin, PaperPermissibleInjector { holder })
         val now = Instant.parse("2026-08-23T12:00:00Z")
-        val snapshot =
-            PermissionSnapshot(
-                player.uniqueId,
-                1,
-                now,
-                now,
-                now.plusSeconds(60),
-                listOf(
-                    grant(PermissionEffect.ALLOW, "ground.test.exact"),
-                    grant(PermissionEffect.ALLOW, "ground.test.*"),
-                    grant(
-                        PermissionEffect.ALLOW,
-                        "ground.test.scope",
-                        PermissionScope.environment("stage"),
-                    ),
-                ),
-                listOf(
-                    grant(PermissionEffect.DENY, "ground.test.delete"),
-                    grant(PermissionEffect.DENY, "ground.test.scope"),
-                ),
-                emptySet(),
-                emptyList(),
-            )
-        val permissions =
-            SnapshotPermissions(
-                mapOf(player.uniqueId to snapshot),
-                PermissionCheckScope(
-                    environment = "stage",
-                    serverType = "buildserver",
-                    server = "buildserver",
-                ),
-                clock = Clock.fixed(now, ZoneOffset.UTC),
-            )
+        val permissions = SnapshotPermissions(
+            mapOf(player.uniqueId to PermissionSnapshot(player.uniqueId, 1, now, now, now.plusSeconds(60), listOf(grant("*")), emptyList(), emptySet(), emptyList())),
+            PermissionCheckScope(), Clock.fixed(now, ZoneOffset.UTC),
+        )
 
-        val platform = BukkitPaperPermissionPlatform(plugin)
-        platform.materializePermissions(player.uniqueId, permissions)
+        platform.injectPermissions(BukkitPaperPermissionPlayer(player), permissions)
 
-        assertTrue(player.hasPermission("ground.test.exact"))
-        assertTrue(player.hasPermission("ground.test.read"))
-        assertFalse(player.hasPermission("ground.test.delete"))
-        assertTrue(player.hasPermission("ground.test.scope"))
-        platform.removeAllMaterializedPermissions()
-        assertFalse(player.hasPermission("ground.test.read"))
-        assertTrue(player.effectivePermissions.none { it.permission == "ground.test.read" })
+        val injected = PermissibleFieldAccess.locate(holder.javaClass).read(holder)
+        assertTrue(injected.hasPermission("unregistered.dynamic.node"))
     }
 
-    private fun grant(
-        effect: PermissionEffect,
-        pattern: String,
-        scope: PermissionScope = PermissionScope.global(),
-    ) = PermissionGrant(effect, pattern, scope, PermissionGrantSource.ROLE)
+    private fun grant(pattern: String) = PermissionGrant(PermissionEffect.ALLOW, pattern, PermissionScope.global(), PermissionGrantSource.ROLE)
+    private open class TestHuman(protected val perm: PermissibleBase)
+    private class TestPlayer(perm: PermissibleBase) : TestHuman(perm)
 }

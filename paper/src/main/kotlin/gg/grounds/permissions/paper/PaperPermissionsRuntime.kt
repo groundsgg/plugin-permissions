@@ -46,13 +46,13 @@ internal fun interface PaperPermissionInvalidationStarter {
 internal interface PaperPermissionPlatform {
     fun onlinePlayerIds(): Set<UUID>
 
+    fun validateInjection()
+
     fun registerPreLogin(handler: (UUID) -> PermissionLoginResult): AutoCloseable
 
-    fun registerPlayerJoin(handler: (UUID) -> Unit): AutoCloseable
+    fun registerPlayerLogin(handler: (PaperPermissionPlayer) -> PermissionLoginResult): AutoCloseable
 
-    fun registerPluginEnable(handler: () -> Unit): AutoCloseable
-
-    fun registerQuit(handler: (UUID) -> Unit): AutoCloseable
+    fun registerQuit(handler: (PaperPermissionPlayer) -> Unit): AutoCloseable
 
     fun scheduleRefresh(intervalSeconds: Long, task: () -> Unit): AutoCloseable
 
@@ -60,15 +60,19 @@ internal interface PaperPermissionPlatform {
 
     fun unpublish()
 
-    fun materializePermissions(playerId: UUID, permissions: Permissions)
+    fun injectPermissions(player: PaperPermissionPlayer, permissions: Permissions)
 
-    fun removeMaterializedPermissions(playerId: UUID)
+    fun refreshPermissions(playerId: UUID)
 
-    fun materializeOnlinePermissions(permissions: Permissions)
+    fun retirePermissions(player: PaperPermissionPlayer)
 
     fun runOnServerThread(task: () -> Unit)
 
-    fun removeAllMaterializedPermissions()
+    fun restoreAllPermissions()
+}
+
+internal interface PaperPermissionPlayer {
+    val playerId: UUID
 }
 
 internal class PaperPermissionsRuntime
@@ -88,8 +92,7 @@ internal constructor(
     private val invalidationLifecycle = PermissionSnapshotInvalidationLifecycle("paper", logger)
     private var preLoginRegistration: AutoCloseable? = null
     private var quitRegistration: AutoCloseable? = null
-    private var joinRegistration: AutoCloseable? = null
-    private var pluginEnableRegistration: AutoCloseable? = null
+    private var loginRegistration: AutoCloseable? = null
     private var refreshRegistration: AutoCloseable? = null
     private var published = false
     private var permissions: Permissions? = null
@@ -110,24 +113,22 @@ internal constructor(
                 onlinePlayerIds = platform::onlinePlayerIds,
                 fetchSnapshot = { playerId -> fetchForRefresh(client, playerId, config.context) },
                 clock = clock,
-                onSnapshotRefreshed = ::materializeOnServerThread,
+                onSnapshotRefreshed = ::refreshCommandsOnServerThread,
             )
 
+        platform.validateInjection()
         platform.publish(permissions)
         this.permissions = permissions
         published = true
         preLoginRegistration = platform.registerPreLogin(loader::loadSnapshot)
-        joinRegistration = platform.registerPlayerJoin(::materializeOnServerThread)
-        pluginEnableRegistration =
-            platform.registerPluginEnable { platform.materializeOnlinePermissions(permissions) }
+        loginRegistration = platform.registerPlayerLogin(::injectOnLogin)
         quitRegistration =
-            platform.registerQuit { playerId ->
-                snapshots.merge(emptyMap()) { candidateId, _ -> candidateId == playerId }
-                platform.runOnServerThread { platform.removeMaterializedPermissions(playerId) }
+            platform.registerQuit { player ->
+                platform.retirePermissions(player)
+                snapshots.merge(emptyMap()) { candidateId, _ -> candidateId == player.playerId }
             }
         refreshRegistration =
             platform.scheduleRefresh(config.refreshIntervalSeconds) { refreshSweep.run() }
-        platform.runOnServerThread { platform.materializeOnlinePermissions(permissions) }
         return invalidationStarter.start(
             config.snapshotInvalidations,
             snapshots,
@@ -135,7 +136,7 @@ internal constructor(
             config.context,
             { playerId -> platform.onlinePlayerIds().contains(playerId) },
             logger,
-            ::materializeOnServerThread,
+            ::refreshCommandsOnServerThread,
         )
     }
 
@@ -157,15 +158,13 @@ internal constructor(
         invalidationLifecycle.close()
         preLoginRegistration.closeQuietly()
         preLoginRegistration = null
-        joinRegistration.closeQuietly()
-        joinRegistration = null
-        pluginEnableRegistration.closeQuietly()
-        pluginEnableRegistration = null
+        loginRegistration.closeQuietly()
+        loginRegistration = null
         quitRegistration.closeQuietly()
         quitRegistration = null
         refreshRegistration.closeQuietly()
         refreshRegistration = null
-        platform.runOnServerThread(platform::removeAllMaterializedPermissions)
+        platform.runOnServerThread(platform::restoreAllPermissions)
         if (published) platform.unpublish()
         published = false
         permissions = null
@@ -175,10 +174,20 @@ internal constructor(
 
     internal fun snapshotForTest(playerId: UUID): PermissionSnapshot? = snapshots.get(playerId)
 
-    private fun materializeOnServerThread(playerId: UUID) {
-        permissions?.let { permissions ->
-            platform.runOnServerThread { platform.materializePermissions(playerId, permissions) }
+    private fun injectOnLogin(player: PaperPermissionPlayer): PermissionLoginResult {
+        val permissions = permissions ?: return PermissionLoginResult.denied()
+        if (snapshots.get(player.playerId) == null) return PermissionLoginResult.denied()
+        return try {
+            platform.injectPermissions(player, permissions)
+            PermissionLoginResult.allowed(snapshots.get(player.playerId)!!)
+        } catch (exception: RuntimeException) {
+            logger.error("Permission injection failed (playerId={})", player.playerId, exception)
+            PermissionLoginResult.denied()
         }
+    }
+
+    private fun refreshCommandsOnServerThread(playerId: UUID) {
+        platform.runOnServerThread { platform.refreshPermissions(playerId) }
     }
 
     companion object {
