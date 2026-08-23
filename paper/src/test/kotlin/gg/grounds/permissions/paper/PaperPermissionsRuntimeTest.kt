@@ -135,6 +135,34 @@ class PaperPermissionsRuntimeTest {
     }
 
     @Test
+    fun `successful invalidation reapplies the updated registered-node decision`() {
+        val id = UUID.randomUUID()
+        val platform = RecordingPlatform(setOf(id))
+        var callback: ((UUID) -> Unit)? = null
+        var snapshots: gg.grounds.permissions.InMemoryPermissionSnapshots? = null
+        val runtime =
+            runtime(platform, environment(true), Client { snapshot(id) }) {
+                _,
+                store,
+                _,
+                _,
+                _,
+                _,
+                refreshed ->
+                snapshots = store
+                callback = refreshed
+                Closeable()
+            }
+        runtime.start()
+        requireNotNull(platform.preLogin).invoke(id)
+        requireNotNull(platform.join).invoke(id)
+        assertEquals(false, platform.materialized[id]?.get("registered.node"))
+        snapshots!!.put(snapshot(id, 2, allowPatterns = listOf(grant("registered.node"))))
+        callback!!.invoke(id)
+        assertEquals(true, platform.materialized[id]?.get("registered.node"))
+    }
+
+    @Test
     fun `quit removes player snapshot and shutdown closes platform hooks`() {
         val playerId = UUID.randomUUID()
         val platform = RecordingPlatform()
@@ -143,6 +171,7 @@ class PaperPermissionsRuntimeTest {
         requireNotNull(platform.preLogin).invoke(playerId)
         requireNotNull(platform.quit).invoke(playerId)
         assertNull(runtime.snapshotForTest(playerId))
+        assertNull(platform.materialized[playerId])
         runtime.stop()
         assertTrue(
             platform.pre.closed &&
