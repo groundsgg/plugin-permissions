@@ -1,0 +1,91 @@
+package gg.grounds.permissions.paper
+
+import gg.grounds.permissions.Permissions
+import java.util.UUID
+import net.kyori.adventure.text.Component
+import org.bukkit.event.EventHandler
+import org.bukkit.event.HandlerList
+import org.bukkit.event.Listener
+import org.bukkit.event.player.AsyncPlayerPreLoginEvent
+import org.bukkit.event.player.PlayerQuitEvent
+import org.bukkit.plugin.ServicePriority
+import org.bukkit.plugin.java.JavaPlugin
+
+class GroundsPermissionsPlugin : JavaPlugin() {
+    private lateinit var runtime: PaperPermissionsRuntime
+
+    override fun onEnable() {
+        runtime = PaperPermissionsRuntime(BukkitPaperPermissionPlatform(this))
+        runtime.start()
+    }
+
+    override fun onDisable() {
+        if (::runtime.isInitialized) runtime.stop()
+    }
+}
+
+private class BukkitPaperPermissionPlatform(private val plugin: JavaPlugin) :
+    PaperPermissionPlatform {
+    private var servicePublished = false
+
+    override fun onlinePlayerIds(): Set<UUID> =
+        plugin.server.onlinePlayers.mapTo(mutableSetOf()) { it.uniqueId }
+
+    override fun registerPreLogin(handler: (UUID) -> PermissionLoginResult): AutoCloseable =
+        registerListener(
+            object : Listener {
+                @EventHandler
+                fun onPreLogin(event: AsyncPlayerPreLoginEvent) {
+                    val result = handler(event.uniqueId)
+                    if (!result.allowed) {
+                        event.disallow(
+                            AsyncPlayerPreLoginEvent.Result.KICK_OTHER,
+                            Component.text(result.message),
+                        )
+                    }
+                }
+            }
+        )
+
+    override fun registerQuit(handler: (UUID) -> Unit): AutoCloseable =
+        registerListener(
+            object : Listener {
+                @EventHandler fun onQuit(event: PlayerQuitEvent) = handler(event.player.uniqueId)
+            }
+        )
+
+    override fun scheduleRefresh(intervalSeconds: Long, task: () -> Unit): AutoCloseable {
+        val scheduled =
+            plugin.server.scheduler.runTaskTimerAsynchronously(
+                plugin,
+                Runnable(task),
+                intervalSeconds * TICKS_PER_SECOND,
+                intervalSeconds * TICKS_PER_SECOND,
+            )
+        return AutoCloseable(scheduled::cancel)
+    }
+
+    override fun publish(permissions: Permissions) {
+        plugin.server.servicesManager.register(
+            Permissions::class.java,
+            permissions,
+            plugin,
+            ServicePriority.Normal,
+        )
+        servicePublished = true
+    }
+
+    override fun unpublish() {
+        if (servicePublished) plugin.server.servicesManager.unregisterAll(plugin)
+        servicePublished = false
+    }
+
+    private fun registerListener(listener: Listener): AutoCloseable {
+        plugin.server.pluginManager.registerEvents(listener, plugin)
+        return AutoCloseable { HandlerList.unregisterAll(listener) }
+    }
+
+    private companion object {
+        const val TICKS_PER_SECOND = 20L
+    }
+}
