@@ -1,0 +1,5 @@
+name: GroundsPermissions
+version: ${VERSION}
+main: gg.grounds.permissions.paper.GroundsPermissionsPlugin
+api-version: '1.21'
+description: Grounds permission snapshot runtime

@@ -3,11 +3,18 @@
 Permission client for the Grounds network. Loads a player's permission snapshot from
 `service-permissions` and answers `hasPermission` checks against it.
 
-Modules: `common` (snapshot model + resolution), `velocity`, `minestom`.
+Modules: `common` (snapshot model + resolution), `velocity`, `minestom`, `paper`.
 
-The plugin uses the authenticated REST runtime API from `service-permissions`. Minestom and
-Velocity share the HTTP transport, token handling, cache policy, and manifest retry behavior from
-the `common` module.
+The plugin uses the authenticated REST runtime API from `service-permissions`. Minestom, Paper and
+Velocity share the HTTP transport, token handling, cache policy, and snapshot refresh behavior from
+the `common` module. The Paper module publishes the common `Permissions` service through Bukkit's
+`ServicesManager`; presentation such as chat, tab-list and prefix formatting remains the caller's
+responsibility.
+
+When configured on Paper, the plugin materializes every permission node registered through Bukkit's
+public permission registry into one attachment per online player. Ordinary `player.hasPermission`
+therefore follows the snapshot decision for registered nodes. Unregistered dynamic nodes remain
+available through the published Grounds `Permissions` service only.
 
 ## How a snapshot is kept current
 

@@ -1,6 +1,6 @@
 rootProject.name = "plugin-permissions"
 
-include("common", "velocity", "minestom")
+include("common", "velocity", "minestom", "paper")
 
 pluginManagement {
     repositories {

@@ -16,6 +16,7 @@ class PermissionSnapshotRefreshSweep(
     private val onlinePlayerIds: () -> Set<UUID>,
     private val fetchSnapshot: (UUID) -> PermissionSnapshot?,
     private val clock: Clock = Clock.systemUTC(),
+    private val onSnapshotRefreshed: (UUID) -> Unit = {},
 ) {
     fun run() {
         val now = clock.instant()
@@ -39,5 +40,6 @@ class PermissionSnapshotRefreshSweep(
         snapshots.merge(refreshed) { id, snapshot ->
             id !in online && !snapshot.expiresAt.isAfter(now)
         }
+        refreshed.keys.forEach(onSnapshotRefreshed)
     }
 }
