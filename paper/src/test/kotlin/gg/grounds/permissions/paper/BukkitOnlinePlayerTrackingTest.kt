@@ -16,7 +16,9 @@ class BukkitOnlinePlayerTrackingTest {
     fun `tracks joins and quits without mutating earlier snapshots`() {
         val server = MockBukkit.mock()
         val plugin = MockBukkit.load(GroundsPermissionsPlugin::class.java)
+        val existingPlayer = server.addPlayer()
         val platform = BukkitPaperPermissionPlatform(plugin)
+        assertTrue(existingPlayer.uniqueId in platform.onlinePlayerIds())
         platform.registerPlayerJoin {}
         platform.registerQuit {}
         val player = server.addPlayer()
