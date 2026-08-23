@@ -67,6 +67,8 @@ internal interface PaperPermissionPlatform {
     fun materializeOnlinePermissions(permissions: Permissions)
 
     fun runOnServerThread(task: () -> Unit)
+
+    fun removeAllMaterializedPermissions()
 }
 
 internal class PaperPermissionsRuntime
@@ -163,6 +165,7 @@ internal constructor(
         quitRegistration = null
         refreshRegistration.closeQuietly()
         refreshRegistration = null
+        platform.runOnServerThread(platform::removeAllMaterializedPermissions)
         if (published) platform.unpublish()
         published = false
         permissions = null

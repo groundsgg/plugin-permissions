@@ -31,10 +31,7 @@ class PermissionSnapshotRefreshSweep(
             }
             // A failed fetch keeps whatever we already had: it stays valid until it expires, and
             // the next sweep retries. Only the login path may deny a player.
-            fetchSnapshot(id)?.let {
-                refreshed[id] = it
-                onSnapshotRefreshed(id)
-            }
+            fetchSnapshot(id)?.let { refreshed[id] = it }
         }
 
         // Offline and expired is the only combination that is provably dead: the outage fallback
@@ -43,5 +40,6 @@ class PermissionSnapshotRefreshSweep(
         snapshots.merge(refreshed) { id, snapshot ->
             id !in online && !snapshot.expiresAt.isAfter(now)
         }
+        refreshed.keys.forEach(onSnapshotRefreshed)
     }
 }

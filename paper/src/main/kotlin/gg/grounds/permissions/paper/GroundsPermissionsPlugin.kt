@@ -115,6 +115,10 @@ private class BukkitPaperPermissionPlatform(private val plugin: JavaPlugin) :
         plugin.server.getPlayer(playerId)?.removeAttachment(attachment)
     }
 
+    override fun removeAllMaterializedPermissions() {
+        attachments.keys.toList().forEach(::removeMaterializedPermissions)
+    }
+
     override fun materializeOnlinePermissions(permissions: Permissions) {
         plugin.server.onlinePlayers.forEach { materializePermissions(it.uniqueId, permissions) }
     }

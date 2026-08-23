@@ -113,6 +113,7 @@ class PaperPermissionsRuntimeTest {
             platform.pre.closed &&
                 platform.quitClose.closed &&
                 platform.refreshClose.closed &&
+                platform.removedAll &&
                 platform.unpublished
         )
     }
@@ -181,6 +182,7 @@ private class RecordingPlatform(private val players: Set<UUID> = emptySet()) :
     var permissions: Permissions? = null
     var unpublished = false
     val materialized = mutableMapOf<UUID, Map<String, Boolean>>()
+    var removedAll = false
     val pre = Closeable()
     val quitClose = Closeable()
     val refreshClose = Closeable()
@@ -220,6 +222,11 @@ private class RecordingPlatform(private val players: Set<UUID> = emptySet()) :
     override fun materializeOnlinePermissions(permissions: Permissions) {}
 
     override fun runOnServerThread(task: () -> Unit) = task()
+
+    override fun removeAllMaterializedPermissions() {
+        removedAll = true
+        materialized.clear()
+    }
 }
 
 private class Closeable : AutoCloseable {
