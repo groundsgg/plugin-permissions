@@ -5,9 +5,9 @@
 # no entrypoint. A Velocity release lists the plugin by name and fetches it
 # at startup into /app/plugins.
 #
-# The minestom half needs none of this — it is consumed as a Maven artifact
-# and is already compiled into the server images. This image exists only
-# because a Velocity plugin is loaded as a file rather than linked.
+# The Minestom and Paper modules need none of this — they are consumed as Maven
+# artifacts by their server images. This image exists only because a Velocity
+# plugin is loaded as a file rather than linked.
 #
 # Pushed as `ghcr.io/groundsgg/plugin-permissions:edge` (main) / `:<semver>`
 # (tag) by .github/workflows/docker-gradle-build-push.yml.
@@ -26,11 +26,13 @@ ARG GITHUB_USER
 COPY gradle/ gradle/
 COPY gradlew settings.gradle.kts build.gradle.kts ./
 
-# `settings.gradle.kts` includes minestom, so its build files have to be
-# present for configuration to succeed even though nothing here builds it.
+# `settings.gradle.kts` includes all platform modules, so their build files have
+# to be present for configuration to succeed even though nothing here builds
+# them.
 COPY common/ common/
 COPY velocity/ velocity/
 COPY minestom/ minestom/
+COPY paper/ paper/
 
 # `:velocity:build` runs the convention plugin's shadowJar. The default
 # `build` task also produces a thin plugin JAR and a sources JAR; the fat one
