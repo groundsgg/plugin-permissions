@@ -6,5 +6,7 @@ dependencies {
     implementation("org.slf4j:slf4j-api")
 
     testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("org.mockbukkit.mockbukkit:mockbukkit-v26.1.2:4.114.0")
+    testImplementation("io.papermc.paper:paper-api:26.1.2.build.74-stable")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }

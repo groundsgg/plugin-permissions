@@ -14,7 +14,7 @@ import org.bukkit.permissions.PermissionAttachment
 import org.bukkit.plugin.ServicePriority
 import org.bukkit.plugin.java.JavaPlugin
 
-class GroundsPermissionsPlugin : JavaPlugin() {
+open class GroundsPermissionsPlugin : JavaPlugin() {
     private lateinit var runtime: PaperPermissionsRuntime
 
     override fun onEnable() {
@@ -27,7 +27,7 @@ class GroundsPermissionsPlugin : JavaPlugin() {
     }
 }
 
-private class BukkitPaperPermissionPlatform(private val plugin: JavaPlugin) :
+internal class BukkitPaperPermissionPlatform(private val plugin: JavaPlugin) :
     PaperPermissionPlatform {
     private var servicePublished = false
     private val attachments = mutableMapOf<UUID, PermissionAttachment>()

@@ -169,6 +169,8 @@ class PaperPermissionsRuntimeTest {
         val runtime = runtime(platform, environment(), Client { snapshot(playerId) })
         runtime.start()
         requireNotNull(platform.preLogin).invoke(playerId)
+        requireNotNull(platform.join).invoke(playerId)
+        assertNotNull(platform.materialized[playerId])
         requireNotNull(platform.quit).invoke(playerId)
         assertNull(runtime.snapshotForTest(playerId))
         assertNull(platform.materialized[playerId])
