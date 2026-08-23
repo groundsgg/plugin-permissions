@@ -1,13 +1,11 @@
 # syntax=docker/dockerfile:1
 #
-# Builds the plugin-permissions Velocity-plugin JAR and packages it the way
-# the `plugin-velocity-jar` Helm chart expects: the JAR at /jar/plugin.jar,
+# Builds the Velocity and Paper plugin JARs. Velocity remains at /jar/plugin.jar
+# for the `plugin-velocity-jar` Helm chart; Paper is published at /jar/paper.jar.
 # no entrypoint. A Velocity release lists the plugin by name and fetches it
 # at startup into /app/plugins.
 #
-# The Minestom and Paper modules need none of this — they are consumed as Maven
-# artifacts by their server images. This image exists only because a Velocity
-# plugin is loaded as a file rather than linked.
+# The data image lets server images consume release JARs without Maven credentials.
 #
 # Pushed as `ghcr.io/groundsgg/plugin-permissions:edge` (main) / `:<semver>`
 # (tag) by .github/workflows/docker-gradle-build-push.yml.
@@ -34,14 +32,14 @@ COPY velocity/ velocity/
 COPY minestom/ minestom/
 COPY paper/ paper/
 
-# `:velocity:build` runs the convention plugin's shadowJar. The default
+# `:velocity:build` and `:paper:shadowJar` produce the runtime JARs. The default
 # `build` task also produces a thin plugin JAR and a sources JAR; the fat one
 # is the one Velocity can actually load.
 RUN --mount=type=secret,id=github_token,required=true \
     /bin/sh -euc '\
       : "${GITHUB_USER:?GITHUB_USER build arg is required}"; \
       token="$(cat /run/secrets/github_token)"; \
-      ./gradlew --no-daemon :velocity:build \
+      ./gradlew --no-daemon :velocity:build :paper:shadowJar \
         -Pgithub.user="${GITHUB_USER}" \
         -Pgithub.token="${token}" \
     '
@@ -49,11 +47,13 @@ RUN --mount=type=secret,id=github_token,required=true \
 # Resolve the fat JAR by size — the convention plugin pins no stable
 # classifier, so a glob would match either too few files or too many.
 RUN mkdir -p /out && \
-    cp "$(ls -S /src/velocity/build/libs/*.jar | head -n1)" /out/plugin.jar
+    cp "$(ls -S /src/velocity/build/libs/*.jar | head -n1)" /out/plugin.jar && \
+    cp /src/paper/build/libs/plugin-permissions-paper.jar /out/paper.jar
 
 FROM alpine:3
 RUN mkdir -p /jar
 COPY --from=build /out/plugin.jar /jar/plugin.jar
+COPY --from=build /out/paper.jar /jar/paper.jar
 # No ENTRYPOINT — the plugin-velocity-jar chart's init-container `cp`s
 # /jar/plugin.jar out and its main container (busybox httpd) serves it. This
 # image only carries data.
