@@ -50,6 +50,17 @@ class PaperPermissionsRuntimeTest {
     }
 
     @Test
+    fun `join materializes every registered node through the published permissions service`() {
+        val playerId = UUID.randomUUID()
+        val platform = RecordingPlatform()
+        val runtime = runtime(platform, environment(), Client { snapshot(playerId) })
+        runtime.start()
+        requireNotNull(platform.preLogin).invoke(playerId)
+        requireNotNull(platform.join).invoke(playerId)
+        assertEquals(mapOf("registered.node" to false), platform.materialized[playerId])
+    }
+
+    @Test
     fun `runtime publishes common permissions service`() {
         val platform = RecordingPlatform()
         runtime(platform, environment()).start()
@@ -79,7 +90,7 @@ class PaperPermissionsRuntimeTest {
             runtime(
                 platform,
                 environment(true),
-                invalidationStarter = { _, _, _, _, _, _ -> Closeable().also(handles::add) },
+                invalidationStarter = { _, _, _, _, _, _, _ -> Closeable().also(handles::add) },
             )
         runtime.start()
         runtime.start()
@@ -118,8 +129,9 @@ class PaperPermissionsRuntimeTest {
                 PermissionSnapshotContext,
                 (UUID) -> Boolean,
                 org.slf4j.Logger,
+                (UUID) -> Unit,
             ) -> AutoCloseable? =
-            { _, _, _, _, _, _ ->
+            { _, _, _, _, _, _, _ ->
                 null
             },
     ) =
@@ -163,10 +175,12 @@ class PaperPermissionsRuntimeTest {
 private class RecordingPlatform(private val players: Set<UUID> = emptySet()) :
     PaperPermissionPlatform {
     var preLogin: ((UUID) -> PermissionLoginResult)? = null
+    var join: ((UUID) -> Unit)? = null
     var quit: ((UUID) -> Unit)? = null
     var refresh: (() -> Unit)? = null
     var permissions: Permissions? = null
     var unpublished = false
+    val materialized = mutableMapOf<UUID, Map<String, Boolean>>()
     val pre = Closeable()
     val quitClose = Closeable()
     val refreshClose = Closeable()
@@ -175,6 +189,10 @@ private class RecordingPlatform(private val players: Set<UUID> = emptySet()) :
 
     override fun registerPreLogin(handler: (UUID) -> PermissionLoginResult) =
         pre.also { preLogin = handler }
+
+    override fun registerPlayerJoin(handler: (UUID) -> Unit) = pre.also { join = handler }
+
+    override fun registerPluginEnable(handler: () -> Unit) = pre
 
     override fun registerQuit(handler: (UUID) -> Unit) = quitClose.also { quit = handler }
 
@@ -189,6 +207,19 @@ private class RecordingPlatform(private val players: Set<UUID> = emptySet()) :
         unpublished = true
         permissions = null
     }
+
+    override fun materializePermissions(playerId: UUID, permissions: Permissions) {
+        materialized[playerId] =
+            mapOf("registered.node" to permissions.hasPermission(playerId, "registered.node"))
+    }
+
+    override fun removeMaterializedPermissions(playerId: UUID) {
+        materialized.remove(playerId)
+    }
+
+    override fun materializeOnlinePermissions(permissions: Permissions) {}
+
+    override fun runOnServerThread(task: () -> Unit) = task()
 }
 
 private class Closeable : AutoCloseable {

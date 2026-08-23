@@ -13,6 +13,7 @@ class PermissionSnapshotInvalidationCoordinator(
     private val fetchSnapshot: (UUID) -> PermissionSnapshot?,
     private val executor: Executor,
     private val logger: Logger,
+    private val onSnapshotRefreshed: (UUID) -> Unit = {},
 ) {
     private val inFlight = ConcurrentHashMap.newKeySet<UUID>()
 
@@ -43,6 +44,7 @@ class PermissionSnapshotInvalidationCoordinator(
                 return
             }
             snapshots.put(snapshot)
+            onSnapshotRefreshed(playerId)
             logger.debug(
                 "Refreshed invalidated permission snapshot successfully (playerId={})",
                 playerId,

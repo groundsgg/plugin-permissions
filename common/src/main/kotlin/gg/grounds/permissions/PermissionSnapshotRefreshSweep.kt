@@ -16,6 +16,7 @@ class PermissionSnapshotRefreshSweep(
     private val onlinePlayerIds: () -> Set<UUID>,
     private val fetchSnapshot: (UUID) -> PermissionSnapshot?,
     private val clock: Clock = Clock.systemUTC(),
+    private val onSnapshotRefreshed: (UUID) -> Unit = {},
 ) {
     fun run() {
         val now = clock.instant()
@@ -30,7 +31,10 @@ class PermissionSnapshotRefreshSweep(
             }
             // A failed fetch keeps whatever we already had: it stays valid until it expires, and
             // the next sweep retries. Only the login path may deny a player.
-            fetchSnapshot(id)?.let { refreshed[id] = it }
+            fetchSnapshot(id)?.let {
+                refreshed[id] = it
+                onSnapshotRefreshed(id)
+            }
         }
 
         // Offline and expired is the only combination that is provably dead: the outage fallback

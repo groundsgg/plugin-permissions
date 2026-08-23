@@ -7,7 +7,10 @@ import org.bukkit.event.EventHandler
 import org.bukkit.event.HandlerList
 import org.bukkit.event.Listener
 import org.bukkit.event.player.AsyncPlayerPreLoginEvent
+import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.player.PlayerQuitEvent
+import org.bukkit.event.server.PluginEnableEvent
+import org.bukkit.permissions.PermissionAttachment
 import org.bukkit.plugin.ServicePriority
 import org.bukkit.plugin.java.JavaPlugin
 
@@ -27,6 +30,7 @@ class GroundsPermissionsPlugin : JavaPlugin() {
 private class BukkitPaperPermissionPlatform(private val plugin: JavaPlugin) :
     PaperPermissionPlatform {
     private var servicePublished = false
+    private val attachments = mutableMapOf<UUID, PermissionAttachment>()
 
     override fun onlinePlayerIds(): Set<UUID> =
         plugin.server.onlinePlayers.mapTo(mutableSetOf()) { it.uniqueId }
@@ -54,6 +58,20 @@ private class BukkitPaperPermissionPlatform(private val plugin: JavaPlugin) :
             }
         )
 
+    override fun registerPlayerJoin(handler: (UUID) -> Unit): AutoCloseable =
+        registerListener(
+            object : Listener {
+                @EventHandler fun onJoin(event: PlayerJoinEvent) = handler(event.player.uniqueId)
+            }
+        )
+
+    override fun registerPluginEnable(handler: () -> Unit): AutoCloseable =
+        registerListener(
+            object : Listener {
+                @EventHandler fun onPluginEnable(event: PluginEnableEvent) = handler()
+            }
+        )
+
     override fun scheduleRefresh(intervalSeconds: Long, task: () -> Unit): AutoCloseable {
         val scheduled =
             plugin.server.scheduler.runTaskTimerAsynchronously(
@@ -78,6 +96,32 @@ private class BukkitPaperPermissionPlatform(private val plugin: JavaPlugin) :
     override fun unpublish() {
         if (servicePublished) plugin.server.servicesManager.unregisterAll(plugin)
         servicePublished = false
+    }
+
+    override fun materializePermissions(playerId: UUID, permissions: Permissions) {
+        val player = plugin.server.getPlayer(playerId) ?: return
+        val attachment = attachments.getOrPut(playerId) { player.addAttachment(plugin) }
+        attachment.permissions.keys.toList().forEach(attachment::unsetPermission)
+        plugin.server.pluginManager.permissions.forEach { permission ->
+            attachment.setPermission(
+                permission.name,
+                permissions.hasPermission(playerId, permission.name),
+            )
+        }
+    }
+
+    override fun removeMaterializedPermissions(playerId: UUID) {
+        val attachment = attachments.remove(playerId) ?: return
+        plugin.server.getPlayer(playerId)?.removeAttachment(attachment)
+    }
+
+    override fun materializeOnlinePermissions(permissions: Permissions) {
+        plugin.server.onlinePlayers.forEach { materializePermissions(it.uniqueId, permissions) }
+    }
+
+    override fun runOnServerThread(task: () -> Unit) {
+        if (org.bukkit.Bukkit.isPrimaryThread()) task()
+        else plugin.server.scheduler.runTask(plugin, Runnable(task))
     }
 
     private fun registerListener(listener: Listener): AutoCloseable {

@@ -11,6 +11,11 @@ the `common` module. The Paper module publishes the common `Permissions` service
 `ServicesManager`; presentation such as chat, tab-list and prefix formatting remains the caller's
 responsibility.
 
+When configured on Paper, the plugin materializes every permission node registered through Bukkit's
+public permission registry into one attachment per online player. Ordinary `player.hasPermission`
+therefore follows the snapshot decision for registered nodes. Unregistered dynamic nodes remain
+available through the published Grounds `Permissions` service only.
+
 ## How a snapshot is kept current
 
 A snapshot is fetched at login. The service stamps it with `refreshAfter` (+5 min) and `expiresAt`

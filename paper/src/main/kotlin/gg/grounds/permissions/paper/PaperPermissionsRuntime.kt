@@ -39,6 +39,7 @@ internal fun interface PaperPermissionInvalidationStarter {
         context: PermissionSnapshotContext,
         isOnline: (UUID) -> Boolean,
         logger: Logger,
+        onSnapshotRefreshed: (UUID) -> Unit,
     ): AutoCloseable?
 }
 
@@ -47,6 +48,10 @@ internal interface PaperPermissionPlatform {
 
     fun registerPreLogin(handler: (UUID) -> PermissionLoginResult): AutoCloseable
 
+    fun registerPlayerJoin(handler: (UUID) -> Unit): AutoCloseable
+
+    fun registerPluginEnable(handler: () -> Unit): AutoCloseable
+
     fun registerQuit(handler: (UUID) -> Unit): AutoCloseable
 
     fun scheduleRefresh(intervalSeconds: Long, task: () -> Unit): AutoCloseable
@@ -54,6 +59,14 @@ internal interface PaperPermissionPlatform {
     fun publish(permissions: Permissions)
 
     fun unpublish()
+
+    fun materializePermissions(playerId: UUID, permissions: Permissions)
+
+    fun removeMaterializedPermissions(playerId: UUID)
+
+    fun materializeOnlinePermissions(permissions: Permissions)
+
+    fun runOnServerThread(task: () -> Unit)
 }
 
 internal class PaperPermissionsRuntime
@@ -73,8 +86,11 @@ internal constructor(
     private val invalidationLifecycle = PermissionSnapshotInvalidationLifecycle("paper", logger)
     private var preLoginRegistration: AutoCloseable? = null
     private var quitRegistration: AutoCloseable? = null
+    private var joinRegistration: AutoCloseable? = null
+    private var pluginEnableRegistration: AutoCloseable? = null
     private var refreshRegistration: AutoCloseable? = null
     private var published = false
+    private var permissions: Permissions? = null
 
     fun start() {
         stop()
@@ -92,17 +108,24 @@ internal constructor(
                 onlinePlayerIds = platform::onlinePlayerIds,
                 fetchSnapshot = { playerId -> fetchForRefresh(client, playerId, config.context) },
                 clock = clock,
+                onSnapshotRefreshed = ::materializeOnServerThread,
             )
 
         platform.publish(permissions)
+        this.permissions = permissions
         published = true
         preLoginRegistration = platform.registerPreLogin(loader::loadSnapshot)
+        joinRegistration = platform.registerPlayerJoin(::materializeOnServerThread)
+        pluginEnableRegistration =
+            platform.registerPluginEnable { platform.materializeOnlinePermissions(permissions) }
         quitRegistration =
             platform.registerQuit { playerId ->
                 snapshots.merge(emptyMap()) { candidateId, _ -> candidateId == playerId }
+                platform.runOnServerThread { platform.removeMaterializedPermissions(playerId) }
             }
         refreshRegistration =
             platform.scheduleRefresh(config.refreshIntervalSeconds) { refreshSweep.run() }
+        platform.runOnServerThread { platform.materializeOnlinePermissions(permissions) }
         return invalidationStarter.start(
             config.snapshotInvalidations,
             snapshots,
@@ -110,6 +133,7 @@ internal constructor(
             config.context,
             { playerId -> platform.onlinePlayerIds().contains(playerId) },
             logger,
+            ::materializeOnServerThread,
         )
     }
 
@@ -131,17 +155,28 @@ internal constructor(
         invalidationLifecycle.close()
         preLoginRegistration.closeQuietly()
         preLoginRegistration = null
+        joinRegistration.closeQuietly()
+        joinRegistration = null
+        pluginEnableRegistration.closeQuietly()
+        pluginEnableRegistration = null
         quitRegistration.closeQuietly()
         quitRegistration = null
         refreshRegistration.closeQuietly()
         refreshRegistration = null
         if (published) platform.unpublish()
         published = false
+        permissions = null
     }
 
     override fun close() = stop()
 
     internal fun snapshotForTest(playerId: UUID): PermissionSnapshot? = snapshots.get(playerId)
+
+    private fun materializeOnServerThread(playerId: UUID) {
+        permissions?.let { permissions ->
+            platform.runOnServerThread { platform.materializePermissions(playerId, permissions) }
+        }
+    }
 
     companion object {
         private val DEFAULT_RUNTIME_CLIENT_FACTORY =
@@ -155,7 +190,8 @@ internal constructor(
                 client,
                 context,
                 isOnline,
-                logger ->
+                logger,
+                onSnapshotRefreshed ->
                 PaperPermissionSnapshotInvalidations.start(
                     config,
                     snapshots,
@@ -163,6 +199,7 @@ internal constructor(
                     context,
                     isOnline,
                     logger,
+                    onSnapshotRefreshed,
                 )
             }
     }
@@ -274,6 +311,7 @@ private constructor(private val subscriber: AutoCloseable, private val executor:
             context: PermissionSnapshotContext,
             isOnline: (UUID) -> Boolean,
             logger: Logger,
+            onSnapshotRefreshed: (UUID) -> Unit,
         ): PaperPermissionSnapshotInvalidations? {
             config ?: return null
             val executor = Executors.newVirtualThreadPerTaskExecutor()
@@ -284,6 +322,7 @@ private constructor(private val subscriber: AutoCloseable, private val executor:
                     { playerId -> client.fetchSnapshot(playerId, context) },
                     executor,
                     logger,
+                    onSnapshotRefreshed,
                 )
             return try {
                 PaperPermissionSnapshotInvalidations(
