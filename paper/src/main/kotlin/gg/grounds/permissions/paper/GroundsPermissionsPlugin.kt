@@ -159,7 +159,11 @@ internal class BukkitPaperPermissionPlatform(
     }
 
     override fun restoreAllPermissions() {
-        plugin.server.onlinePlayers.forEach(injector::restore)
+        injector.restoreAll(plugin.server.onlinePlayers) { player, exception ->
+            plugin.logger.severe(
+                "Failed to restore permissible (playerId=${player.uniqueId}): ${exception.message}"
+            )
+        }
     }
 
     override fun runOnServerThread(task: () -> Unit) {

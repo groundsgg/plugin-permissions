@@ -138,7 +138,7 @@ internal constructor(
             platform.scheduleRefresh(config.refreshIntervalSeconds) { refreshSweep.run() }
         platform.onlinePlayers().forEach { player ->
             if (snapshots.get(player.playerId) == null) loader.loadSnapshot(player.playerId)
-            injectOnLogin(player)
+            injectOnline(player)
         }
         return invalidationStarter.start(
             config.snapshotInvalidations,
@@ -177,7 +177,11 @@ internal constructor(
         quitRegistration = null
         refreshRegistration.closeQuietly()
         refreshRegistration = null
-        platform.runOnServerThread(platform::restoreAllPermissions)
+        try {
+            platform.runOnServerThread(platform::restoreAllPermissions)
+        } catch (exception: RuntimeException) {
+            logger.error("Permission restoration failed", exception)
+        }
         activeSessions.clear()
         if (published) platform.unpublish()
         published = false
@@ -189,15 +193,20 @@ internal constructor(
     internal fun snapshotForTest(playerId: UUID): PermissionSnapshot? = snapshots.get(playerId)
 
     private fun injectOnLogin(player: PaperPermissionPlayer): PermissionLoginResult {
-        val permissions = permissions ?: return PermissionLoginResult.denied()
-        if (snapshots.get(player.playerId) == null) return PermissionLoginResult.denied()
+        val snapshot = snapshots.get(player.playerId) ?: return PermissionLoginResult.denied()
+        return if (injectOnline(player)) PermissionLoginResult.allowed(snapshot)
+        else PermissionLoginResult.denied()
+    }
+
+    private fun injectOnline(player: PaperPermissionPlayer): Boolean {
+        val permissions = permissions ?: return false
         return try {
             platform.injectPermissions(player, permissions)
             activeSessions[player.playerId] = player
-            PermissionLoginResult.allowed(snapshots.get(player.playerId)!!)
+            true
         } catch (exception: RuntimeException) {
             logger.error("Permission injection failed (playerId={})", player.playerId, exception)
-            PermissionLoginResult.denied()
+            false
         }
     }
 

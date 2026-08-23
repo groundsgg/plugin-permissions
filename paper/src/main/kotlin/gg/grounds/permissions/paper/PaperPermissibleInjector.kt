@@ -64,6 +64,19 @@ class PaperPermissibleInjector(private val target: (Player) -> Any = { it }) {
         managed.remove(player)
     }
 
+    fun restoreAll(
+        players: Iterable<Player>,
+        onFailure: (Player, PaperPermissibleInjectionException) -> Unit,
+    ) {
+        players.forEach { player ->
+            try {
+                restore(player)
+            } catch (exception: PaperPermissibleInjectionException) {
+                onFailure(player, exception)
+            }
+        }
+    }
+
     @Synchronized
     fun retire(player: Player) {
         val state = managed[player] ?: return

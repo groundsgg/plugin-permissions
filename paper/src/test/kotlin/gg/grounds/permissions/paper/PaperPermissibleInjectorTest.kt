@@ -165,6 +165,37 @@ class PaperPermissibleInjectorTest {
     }
 
     @Test
+    fun `restoreAll continues after a foreign replacement`() {
+        val first = player()
+        val second = server.addPlayer()
+        val firstOriginal = PermissibleBase(first)
+        val secondOriginal = PermissibleBase(second)
+        val firstHolder = TestPlayer(firstOriginal)
+        val secondHolder = TestPlayer(secondOriginal)
+        val holders =
+            java.util.IdentityHashMap<org.bukkit.entity.Player, TestPlayer>().apply {
+                put(first, firstHolder)
+                put(second, secondHolder)
+            }
+        val injector = PaperPermissibleInjector { player -> holders.getValue(player) }
+        injector.inject(first, GroundsPermissible(first, plugin(), SnapshotPermissions(emptyMap())))
+        injector.inject(
+            second,
+            GroundsPermissible(second, plugin(), SnapshotPermissions(emptyMap())),
+        )
+        PermissibleFieldAccess.locate(firstHolder.javaClass).write(firstHolder, CustomPermissible())
+
+        val failures = mutableListOf<org.bukkit.entity.Player>()
+        injector.restoreAll(listOf(first, second)) { player, _ -> failures += player }
+
+        assertEquals(listOf(first), failures)
+        assertSame(
+            secondOriginal,
+            PermissibleFieldAccess.locate(secondHolder.javaClass).read(secondHolder),
+        )
+    }
+
+    @Test
     fun `lifecycle operations on one injector are serialized`() {
         val player = player()
         val holder = TestPlayer(PermissibleBase(player))

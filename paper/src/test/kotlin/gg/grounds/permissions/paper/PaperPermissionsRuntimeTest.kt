@@ -193,20 +193,22 @@ class PaperPermissionsRuntimeTest {
     }
 
     @Test
-    fun `startup skips an online player when its snapshot is unavailable`() {
+    fun `startup injects an online player fail-closed when its snapshot is unavailable`() {
         val id = UUID.randomUUID()
         val player = TestPermissionPlayer(id)
         val platform = RecordingPlatform(onlinePlayers = setOf(player))
-
-        runtime(
+        val runtime =
+            runtime(
                 platform,
                 environment(),
                 Client { throw SnapshotUnavailableException(SnapshotFailureReason.UNAVAILABLE) },
             )
-            .start()
 
-        assertTrue(platform.injected.isEmpty())
-        assertNull(platform.permissions?.snapshot(id))
+        runtime.start()
+
+        assertEquals(listOf(player), platform.injected)
+        assertNull(runtime.snapshotForTest(id))
+        assertFalse(requireNotNull(platform.permissions).hasPermission(id, "grounds.anything"))
     }
 
     @Test
@@ -259,6 +261,18 @@ class PaperPermissionsRuntimeTest {
                 platform.restoredAll &&
                 platform.unpublished
         )
+    }
+
+    @Test
+    fun `shutdown unpublishes even when restoration fails`() {
+        val platform = RecordingPlatform(restoreFailure = IllegalStateException("foreign provider"))
+        val runtime = runtime(platform, environment())
+        runtime.start()
+
+        runtime.stop()
+
+        assertTrue(platform.unpublished)
+        assertTrue(platform.restoredAll)
     }
 
     private fun runtime(
@@ -333,6 +347,7 @@ private class RecordingPlatform(
     private val players: Set<UUID> = emptySet(),
     private val injectionFailure: RuntimeException? = null,
     private val onlinePlayers: Set<PaperPermissionPlayer> = emptySet(),
+    private val restoreFailure: RuntimeException? = null,
 ) : PaperPermissionPlatform {
     var preLogin: ((UUID) -> PermissionLoginResult)? = null
     var login: ((PaperPermissionPlayer) -> PermissionLoginResult)? = null
@@ -400,6 +415,7 @@ private class RecordingPlatform(
 
     override fun restoreAllPermissions() {
         restoredAll = true
+        restoreFailure?.let { throw it }
     }
 
     override fun runOnServerThread(task: () -> Unit) = task()
