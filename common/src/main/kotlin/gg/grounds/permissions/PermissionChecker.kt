@@ -7,10 +7,26 @@ import java.util.LinkedHashSet
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 
-interface Permissions {
-    fun hasPermission(playerId: UUID, permission: String): Boolean
+enum class PermissionDecision {
+    ALLOW,
+    DENY,
+    UNSET,
+}
 
-    fun hasPermission(playerId: UUID, permission: String, scope: PermissionCheckScope): Boolean
+interface Permissions {
+    fun permissionDecision(playerId: UUID, permission: String): PermissionDecision
+
+    fun permissionDecision(
+        playerId: UUID,
+        permission: String,
+        scope: PermissionCheckScope,
+    ): PermissionDecision
+
+    fun hasPermission(playerId: UUID, permission: String): Boolean =
+        permissionDecision(playerId, permission) == PermissionDecision.ALLOW
+
+    fun hasPermission(playerId: UUID, permission: String, scope: PermissionCheckScope): Boolean =
+        permissionDecision(playerId, permission, scope) == PermissionDecision.ALLOW
 
     fun snapshot(playerId: UUID): PermissionSnapshot?
 }
@@ -89,36 +105,36 @@ class SnapshotPermissions(
         clock: Clock = Clock.systemUTC(),
     ) : this(InMemoryPermissionSnapshots(snapshots), defaultScope, clock)
 
-    override fun hasPermission(playerId: UUID, permission: String): Boolean {
-        return hasPermission(playerId, permission, defaultScope)
+    override fun permissionDecision(playerId: UUID, permission: String): PermissionDecision {
+        return permissionDecision(playerId, permission, defaultScope)
     }
 
-    override fun hasPermission(
+    override fun permissionDecision(
         playerId: UUID,
         permission: String,
         scope: PermissionCheckScope,
-    ): Boolean {
-        val snapshot = snapshots.get(playerId) ?: return false
-        return hasPermission(snapshot, permission, scope, clock.instant())
+    ): PermissionDecision {
+        val snapshot = snapshots.get(playerId) ?: return PermissionDecision.UNSET
+        return permissionDecision(snapshot, permission, scope, clock.instant())
     }
 
     override fun snapshot(playerId: UUID): PermissionSnapshot? = snapshots.get(playerId)
 
-    fun hasPermission(
+    fun permissionDecision(
         snapshot: PermissionSnapshot,
         permission: String,
         scope: PermissionCheckScope = defaultScope,
         now: Instant = clock.instant(),
-    ): Boolean {
+    ): PermissionDecision {
         if (!snapshot.expiresAt.isAfter(now)) {
-            return false
+            return PermissionDecision.UNSET
         }
 
         val candidate =
             (snapshot.allowPatterns + snapshot.denyPatterns)
                 .asSequence()
                 .filterNot { it.isExpired(now) }
-                .filter { PermissionPattern.matches(it.pattern, permission) }
+                .filter { PermissionPatterns.matches(it.pattern, permission) }
                 .mapNotNull { grant -> grant.toCandidate(scope) }
                 .maxWithOrNull(
                     compareBy<PermissionCandidate> { it.scopeSpecificity }
@@ -127,8 +143,19 @@ class SnapshotPermissions(
                         .thenBy { it.effectSpecificity }
                 )
 
-        return candidate?.grant?.effect == PermissionEffect.ALLOW
+        return when (candidate?.grant?.effect) {
+            PermissionEffect.ALLOW -> PermissionDecision.ALLOW
+            PermissionEffect.DENY -> PermissionDecision.DENY
+            null -> PermissionDecision.UNSET
+        }
     }
+
+    fun hasPermission(
+        snapshot: PermissionSnapshot,
+        permission: String,
+        scope: PermissionCheckScope = defaultScope,
+        now: Instant = clock.instant(),
+    ): Boolean = permissionDecision(snapshot, permission, scope, now) == PermissionDecision.ALLOW
 
     private fun PermissionGrant.toCandidate(scope: PermissionCheckScope): PermissionCandidate? {
         val scopeSpecificity = this.scope.specificityFor(scope) ?: return null
@@ -140,7 +167,7 @@ class SnapshotPermissions(
                     PermissionGrantSource.ROLE -> 0
                     PermissionGrantSource.PLAYER -> 1
                 },
-            patternSpecificity = PermissionPattern.specificity(pattern),
+            patternSpecificity = PermissionPatterns.specificity(pattern),
             effectSpecificity =
                 when (effect) {
                     PermissionEffect.ALLOW -> 0
@@ -165,7 +192,7 @@ class SnapshotPermissions(
         expiresAt?.let { !it.isAfter(now) } ?: false
 }
 
-private object PermissionPattern {
+object PermissionPatterns {
     fun matches(pattern: String, permission: String): Boolean =
         when {
             pattern == "*" -> true
