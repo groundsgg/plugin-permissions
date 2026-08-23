@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/groundsgg/plugin-permissions/compare/v0.9.1...v0.10.0) (2026-08-23)
+
+
+### Features
+
+* **paper:** add permissions runtime ([#30](https://github.com/groundsgg/plugin-permissions/issues/30)) ([d67c452](https://github.com/groundsgg/plugin-permissions/commit/d67c452a0bb9a9044cd56a084df982ff3e87e034))
+
 ## [0.9.1](https://github.com/groundsgg/plugin-permissions/compare/v0.9.0...v0.9.1) (2026-08-02)
 
 
