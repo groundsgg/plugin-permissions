@@ -7,10 +7,10 @@ import java.util.LinkedHashSet
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import org.bukkit.entity.Player
+import org.bukkit.permissions.PermissibleBase
 import org.bukkit.permissions.Permission
 import org.bukkit.permissions.PermissionAttachment
 import org.bukkit.permissions.PermissionAttachmentInfo
-import org.bukkit.permissions.PermissibleBase
 import org.bukkit.plugin.Plugin
 import org.bukkit.plugin.java.JavaPlugin
 
@@ -26,7 +26,8 @@ class GroundsPermissible(
             if (attachment is GroundsPermissionAttachment && attachment.permissible === this) {
                 attach(attachment)
             } else {
-                GroundsPermissionAttachment(this, attachment.plugin, attachment.permissions).also { imported ->
+                GroundsPermissionAttachment(this, attachment.plugin, attachment.permissions).also {
+                    imported ->
                     imported.removalCallback = attachment.removalCallback
                     attach(imported)
                 }
@@ -46,7 +47,8 @@ class GroundsPermissible(
 
     override fun isPermissionSet(permission: String): Boolean =
         attachmentDecision(permission) != PermissionDecision.UNSET ||
-            permissions.permissionDecision(player.uniqueId, normalize(permission)) != PermissionDecision.UNSET
+            permissions.permissionDecision(player.uniqueId, normalize(permission)) !=
+                PermissionDecision.UNSET
 
     override fun hasPermission(permission: Permission): Boolean = hasPermission(permission.name)
 
@@ -55,7 +57,8 @@ class GroundsPermissible(
             PermissionDecision.ALLOW -> true
             PermissionDecision.DENY -> false
             PermissionDecision.UNSET ->
-                permissions.permissionDecision(player.uniqueId, normalize(permission)) == PermissionDecision.ALLOW
+                permissions.permissionDecision(player.uniqueId, normalize(permission)) ==
+                    PermissionDecision.ALLOW
         }
 
     override fun addAttachment(plugin: Plugin): PermissionAttachment =
@@ -66,7 +69,9 @@ class GroundsPermissible(
 
     override fun addAttachment(plugin: Plugin, ticks: Int): PermissionAttachment? {
         if (!plugin.isEnabled) return null
-        return addAttachment(plugin).also { attachment -> scheduleRemoval(plugin, attachment, ticks) }
+        return addAttachment(plugin).also { attachment ->
+            scheduleRemoval(plugin, attachment, ticks)
+        }
     }
 
     override fun addAttachment(
@@ -76,7 +81,9 @@ class GroundsPermissible(
         ticks: Int,
     ): PermissionAttachment? {
         if (!plugin.isEnabled) return null
-        return addAttachment(plugin, name, value).also { attachment -> scheduleRemoval(plugin, attachment, ticks) }
+        return addAttachment(plugin, name, value).also { attachment ->
+            scheduleRemoval(plugin, attachment, ticks)
+        }
     }
 
     override fun removeAttachment(attachment: PermissionAttachment) {
@@ -120,13 +127,18 @@ class GroundsPermissible(
     }
 
     private fun scheduleRemoval(plugin: Plugin, attachment: PermissionAttachment, ticks: Int) {
-        plugin.server.scheduler.runTaskLater(plugin, Runnable { removeAttachment(attachment) }, ticks.toLong())
+        plugin.server.scheduler.runTaskLater(
+            plugin,
+            Runnable { removeAttachment(attachment) },
+            ticks.toLong(),
+        )
     }
 
     private fun attachmentDecision(permission: String): PermissionDecision {
         val normalized = normalize(permission)
         val candidate =
-            attachments.asSequence()
+            attachments
+                .asSequence()
                 .flatMap { attachment ->
                     attachment.permissionsSnapshot().asSequence().map { (pattern, value) ->
                         AttachmentCandidate(pattern, value)

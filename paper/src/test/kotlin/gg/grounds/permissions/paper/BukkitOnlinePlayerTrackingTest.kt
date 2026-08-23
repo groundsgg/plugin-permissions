@@ -1,7 +1,7 @@
 package gg.grounds.permissions.paper
 
-import net.kyori.adventure.text.Component
 import java.net.InetAddress
+import net.kyori.adventure.text.Component
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
@@ -27,7 +27,12 @@ class BukkitOnlinePlayerTrackingTest {
         platform.registerQuit {}
         val player = server.addPlayer()
         server.pluginManager.callEvent(
-            PlayerLoginEvent(player, "localhost", InetAddress.getLoopbackAddress(), InetAddress.getLoopbackAddress()),
+            PlayerLoginEvent(
+                player,
+                "localhost",
+                InetAddress.getLoopbackAddress(),
+                InetAddress.getLoopbackAddress(),
+            )
         )
         val snapshot = platform.onlinePlayerIds()
         assertTrue(player.uniqueId in snapshot)
@@ -49,14 +54,22 @@ class BukkitOnlinePlayerTrackingTest {
             object : Listener {
                 @EventHandler(priority = EventPriority.NORMAL)
                 fun deny(event: PlayerLoginEvent) {
-                    event.disallow(PlayerLoginEvent.Result.KICK_OTHER, Component.text("later denial"))
+                    event.disallow(
+                        PlayerLoginEvent.Result.KICK_OTHER,
+                        Component.text("later denial"),
+                    )
                 }
             },
             plugin,
         )
 
         server.pluginManager.callEvent(
-            PlayerLoginEvent(player, "localhost", InetAddress.getLoopbackAddress(), InetAddress.getLoopbackAddress()),
+            PlayerLoginEvent(
+                player,
+                "localhost",
+                InetAddress.getLoopbackAddress(),
+                InetAddress.getLoopbackAddress(),
+            )
         )
 
         assertFalse(player.uniqueId in platform.onlinePlayerIds())
@@ -73,16 +86,27 @@ class BukkitOnlinePlayerTrackingTest {
             object : Listener {
                 @EventHandler(priority = EventPriority.LOWEST)
                 fun deny(event: PlayerLoginEvent) {
-                    event.disallow(PlayerLoginEvent.Result.KICK_OTHER, Component.text("earlier denial"))
+                    event.disallow(
+                        PlayerLoginEvent.Result.KICK_OTHER,
+                        Component.text("earlier denial"),
+                    )
                 }
             },
             plugin,
         )
         var injected = false
-        platform.registerPlayerLogin { injected = true; PermissionLoginResult(true, "") }
+        platform.registerPlayerLogin {
+            injected = true
+            PermissionLoginResult(true, "")
+        }
 
         server.pluginManager.callEvent(
-            PlayerLoginEvent(player, "localhost", InetAddress.getLoopbackAddress(), InetAddress.getLoopbackAddress()),
+            PlayerLoginEvent(
+                player,
+                "localhost",
+                InetAddress.getLoopbackAddress(),
+                InetAddress.getLoopbackAddress(),
+            )
         )
 
         assertFalse(injected)

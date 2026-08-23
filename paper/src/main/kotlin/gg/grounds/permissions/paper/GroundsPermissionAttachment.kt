@@ -34,7 +34,8 @@ internal class GroundsPermissionAttachment(
         owner.attachmentChanged(this)
     }
 
-    override fun getPermissions(): Map<String, Boolean> = Collections.unmodifiableMap(snapshotPermissions())
+    override fun getPermissions(): Map<String, Boolean> =
+        Collections.unmodifiableMap(snapshotPermissions())
 
     override fun setRemovalCallback(callback: PermissionRemovedExecutor?) {
         this.callback = callback
@@ -52,7 +53,8 @@ internal class GroundsPermissionAttachment(
 
     internal fun notifyRemoved() = callback?.attachmentRemoved(this)
 
-    private fun snapshotPermissions(): Map<String, Boolean> = synchronized(values) { HashMap(values) }
+    private fun snapshotPermissions(): Map<String, Boolean> =
+        synchronized(values) { HashMap(values) }
 
     private fun normalize(node: String): String = node.lowercase(Locale.ROOT)
 }

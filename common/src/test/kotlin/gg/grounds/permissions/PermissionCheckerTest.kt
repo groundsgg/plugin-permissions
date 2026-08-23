@@ -89,9 +89,18 @@ class PermissionCheckerTest {
                 denyPatterns = listOf(deny("buildsystem.delete")),
             )
 
-        assertEquals(PermissionDecision.ALLOW, permissions.permissionDecision(playerId, "buildsystem.import"))
-        assertEquals(PermissionDecision.DENY, permissions.permissionDecision(playerId, "buildsystem.delete"))
-        assertEquals(PermissionDecision.UNSET, permissions.permissionDecision(playerId, "chat.send"))
+        assertEquals(
+            PermissionDecision.ALLOW,
+            permissions.permissionDecision(playerId, "buildsystem.import"),
+        )
+        assertEquals(
+            PermissionDecision.DENY,
+            permissions.permissionDecision(playerId, "buildsystem.delete"),
+        )
+        assertEquals(
+            PermissionDecision.UNSET,
+            permissions.permissionDecision(playerId, "chat.send"),
+        )
     }
 
     @Test
@@ -102,7 +111,10 @@ class PermissionCheckerTest {
                 clock = clock,
             )
 
-        assertEquals(PermissionDecision.UNSET, permissions.permissionDecision(playerId, "buildsystem.import"))
+        assertEquals(
+            PermissionDecision.UNSET,
+            permissions.permissionDecision(playerId, "buildsystem.import"),
+        )
     }
 
     @Test

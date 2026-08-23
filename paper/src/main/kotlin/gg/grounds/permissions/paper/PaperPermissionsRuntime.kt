@@ -52,7 +52,9 @@ internal interface PaperPermissionPlatform {
 
     fun registerPreLogin(handler: (UUID) -> PermissionLoginResult): AutoCloseable
 
-    fun registerPlayerLogin(handler: (PaperPermissionPlayer) -> PermissionLoginResult): AutoCloseable
+    fun registerPlayerLogin(
+        handler: (PaperPermissionPlayer) -> PermissionLoginResult
+    ): AutoCloseable
 
     fun registerPlayerLoginRollback(handler: (PaperPermissionPlayer) -> Unit): AutoCloseable
 
@@ -131,10 +133,7 @@ internal constructor(
         preLoginRegistration = platform.registerPreLogin(loader::loadSnapshot)
         loginRegistration = platform.registerPlayerLogin(::injectOnLogin)
         loginRollbackRegistration = platform.registerPlayerLoginRollback(::rollbackLogin)
-        quitRegistration =
-            platform.registerQuit { player ->
-                retireSession(player)
-            }
+        quitRegistration = platform.registerQuit { player -> retireSession(player) }
         refreshRegistration =
             platform.scheduleRefresh(config.refreshIntervalSeconds) { refreshSweep.run() }
         platform.onlinePlayers().forEach { player ->

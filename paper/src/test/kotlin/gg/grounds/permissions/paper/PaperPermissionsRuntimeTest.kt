@@ -24,14 +24,16 @@ import org.junit.jupiter.api.Test
 import org.slf4j.helpers.NOPLogger
 
 class PaperPermissionsRuntimeTest {
-    @Test fun `disabled configuration does not install a runtime`() {
+    @Test
+    fun `disabled configuration does not install a runtime`() {
         val platform = RecordingPlatform()
         runtime(platform, emptyMap()).start()
         assertNull(platform.permissions)
         assertFalse(platform.validated)
     }
 
-    @Test fun `async pre-login succeeds and stores a snapshot`() {
+    @Test
+    fun `async pre-login succeeds and stores a snapshot`() {
         val id = UUID.randomUUID()
         val expected = snapshot(id)
         val platform = RecordingPlatform()
@@ -41,16 +43,28 @@ class PaperPermissionsRuntimeTest {
         assertEquals(expected, runtime.snapshotForTest(id))
     }
 
-    @Test fun `async pre-login denies unavailable snapshots`() {
+    @Test
+    fun `async pre-login denies unavailable snapshots`() {
         val platform = RecordingPlatform()
-        runtime(platform, environment(), Client { throw SnapshotUnavailableException(SnapshotFailureReason.UNAVAILABLE) }).start()
+        runtime(
+                platform,
+                environment(),
+                Client { throw SnapshotUnavailableException(SnapshotFailureReason.UNAVAILABLE) },
+            )
+            .start()
         assertFalse(requireNotNull(platform.preLogin).invoke(UUID.randomUUID()).allowed)
     }
 
-    @Test fun `login injects only after a successful pre-login snapshot`() {
+    @Test
+    fun `login injects only after a successful pre-login snapshot`() {
         val id = UUID.randomUUID()
         val platform = RecordingPlatform()
-        val runtime = runtime(platform, environment(), Client { snapshot(id, allowPatterns = listOf(grant("*"))) })
+        val runtime =
+            runtime(
+                platform,
+                environment(),
+                Client { snapshot(id, allowPatterns = listOf(grant("*"))) },
+            )
         runtime.start()
         val player = TestPermissionPlayer(id)
         assertFalse(requireNotNull(platform.login).invoke(player).allowed)
@@ -59,9 +73,11 @@ class PaperPermissionsRuntimeTest {
         assertEquals(listOf(player), platform.injected)
     }
 
-    @Test fun `login denies when injection fails`() {
+    @Test
+    fun `login denies when injection fails`() {
         val id = UUID.randomUUID()
-        val platform = RecordingPlatform(injectionFailure = IllegalStateException("inaccessible perm field"))
+        val platform =
+            RecordingPlatform(injectionFailure = IllegalStateException("inaccessible perm field"))
         val runtime = runtime(platform, environment(), Client { snapshot(id) })
         runtime.start()
         requireNotNull(platform.preLogin).invoke(id)
@@ -69,14 +85,16 @@ class PaperPermissionsRuntimeTest {
         assertTrue(platform.injected.isEmpty())
     }
 
-    @Test fun `runtime publishes common permissions service`() {
+    @Test
+    fun `runtime publishes common permissions service`() {
         val platform = RecordingPlatform()
         runtime(platform, environment()).start()
         assertNotNull(platform.permissions)
         assertTrue(platform.validated)
     }
 
-    @Test fun `snapshot refresh updates commands without reinjecting`() {
+    @Test
+    fun `snapshot refresh updates commands without reinjecting`() {
         val id = UUID.randomUUID()
         val old = snapshot(id, refreshAfter = NOW.minusSeconds(1))
         val fresh = snapshot(id, 2, allowPatterns = listOf(grant("*")))
@@ -93,16 +111,25 @@ class PaperPermissionsRuntimeTest {
         assertEquals(listOf(id), platform.refreshed)
     }
 
-    @Test fun `successful invalidation refreshes commands without reinjecting`() {
+    @Test
+    fun `successful invalidation refreshes commands without reinjecting`() {
         val id = UUID.randomUUID()
         val platform = RecordingPlatform(setOf(id))
         var callback: ((UUID) -> Unit)? = null
         var snapshots: InMemoryPermissionSnapshots? = null
-        val runtime = runtime(platform, environment(true), Client { snapshot(id) }) { _, store, _, _, _, _, refreshed ->
-            snapshots = store
-            callback = refreshed
-            Closeable()
-        }
+        val runtime =
+            runtime(platform, environment(true), Client { snapshot(id) }) {
+                _,
+                store,
+                _,
+                _,
+                _,
+                _,
+                refreshed ->
+                snapshots = store
+                callback = refreshed
+                Closeable()
+            }
         runtime.start()
         val player = TestPermissionPlayer(id)
         requireNotNull(platform.preLogin).invoke(id)
@@ -113,10 +140,16 @@ class PaperPermissionsRuntimeTest {
         assertEquals(listOf(id), platform.refreshed)
     }
 
-    @Test fun `replacement closes the previous NATS invalidation lifecycle`() {
+    @Test
+    fun `replacement closes the previous NATS invalidation lifecycle`() {
         val platform = RecordingPlatform()
         val handles = mutableListOf<Closeable>()
-        val runtime = runtime(platform, environment(true), invalidationStarter = { _, _, _, _, _, _, _ -> Closeable().also(handles::add) })
+        val runtime =
+            runtime(
+                platform,
+                environment(true),
+                invalidationStarter = { _, _, _, _, _, _, _ -> Closeable().also(handles::add) },
+            )
         runtime.start()
         runtime.start()
         assertTrue(handles.first().closed)
@@ -124,7 +157,8 @@ class PaperPermissionsRuntimeTest {
         assertTrue(handles.last().closed)
     }
 
-    @Test fun `quit retires player before removing its snapshot`() {
+    @Test
+    fun `quit retires player before removing its snapshot`() {
         val id = UUID.randomUUID()
         val player = TestPermissionPlayer(id)
         val platform = RecordingPlatform()
@@ -138,7 +172,8 @@ class PaperPermissionsRuntimeTest {
         assertNull(runtime.snapshotForTest(id))
     }
 
-    @Test fun `delayed quit retires an old session while preserving a reconnected session`() {
+    @Test
+    fun `delayed quit retires an old session while preserving a reconnected session`() {
         val id = UUID.randomUUID()
         val oldSession = TestPermissionPlayer(id)
         val newSession = TestPermissionPlayer(id)
@@ -157,7 +192,8 @@ class PaperPermissionsRuntimeTest {
         assertNotNull(runtime.snapshotForTest(id))
     }
 
-    @Test fun `startup skips an online player when its snapshot is unavailable`() {
+    @Test
+    fun `startup skips an online player when its snapshot is unavailable`() {
         val id = UUID.randomUUID()
         val player = TestPermissionPlayer(id)
         val platform = RecordingPlatform(onlinePlayers = setOf(player))
@@ -173,7 +209,8 @@ class PaperPermissionsRuntimeTest {
         assertNull(platform.permissions?.snapshot(id))
     }
 
-    @Test fun `restart reinjects an online player with a valid snapshot`() {
+    @Test
+    fun `restart reinjects an online player with a valid snapshot`() {
         val id = UUID.randomUUID()
         val player = TestPermissionPlayer(id)
         val onlinePlayers = mutableSetOf<PaperPermissionPlayer>()
@@ -190,7 +227,8 @@ class PaperPermissionsRuntimeTest {
         assertTrue(platform.restoredAll)
     }
 
-    @Test fun `login rollback retires and clears a later disallowed session`() {
+    @Test
+    fun `login rollback retires and clears a later disallowed session`() {
         val id = UUID.randomUUID()
         val player = TestPermissionPlayer(id)
         val platform = RecordingPlatform()
@@ -207,16 +245,48 @@ class PaperPermissionsRuntimeTest {
         assertTrue(requireNotNull(platform.login).invoke(TestPermissionPlayer(id)).allowed)
     }
 
-    @Test fun `shutdown restores all permissions and closes platform hooks`() {
+    @Test
+    fun `shutdown restores all permissions and closes platform hooks`() {
         val platform = RecordingPlatform()
         val runtime = runtime(platform, environment())
         runtime.start()
         runtime.stop()
-        assertTrue(platform.pre.closed && platform.loginClose.closed && platform.quitClose.closed && platform.refreshClose.closed && platform.restoredAll && platform.unpublished)
+        assertTrue(
+            platform.pre.closed &&
+                platform.loginClose.closed &&
+                platform.quitClose.closed &&
+                platform.refreshClose.closed &&
+                platform.restoredAll &&
+                platform.unpublished
+        )
     }
 
-    private fun runtime(platform: RecordingPlatform, environment: Map<String, String>, client: Client = Client { snapshot(UUID.randomUUID()) }, invalidationStarter: (gg.grounds.permissions.invalidation.PermissionSnapshotInvalidationConfig?, InMemoryPermissionSnapshots, PermissionRuntimeClient, PermissionSnapshotContext, (UUID) -> Boolean, org.slf4j.Logger, (UUID) -> Unit) -> AutoCloseable? = { _, _, _, _, _, _, _ -> null }) =
-        PaperPermissionsRuntime({ environment }, PaperPermissionRuntimeClientFactory { _, _ -> client }, PaperPermissionInvalidationStarter(invalidationStarter), platform, NOPLogger.NOP_LOGGER, java.time.Clock.fixed(NOW, java.time.ZoneOffset.UTC))
+    private fun runtime(
+        platform: RecordingPlatform,
+        environment: Map<String, String>,
+        client: Client = Client { snapshot(UUID.randomUUID()) },
+        invalidationStarter:
+            (
+                gg.grounds.permissions.invalidation.PermissionSnapshotInvalidationConfig?,
+                InMemoryPermissionSnapshots,
+                PermissionRuntimeClient,
+                PermissionSnapshotContext,
+                (UUID) -> Boolean,
+                org.slf4j.Logger,
+                (UUID) -> Unit,
+            ) -> AutoCloseable? =
+            { _, _, _, _, _, _, _ ->
+                null
+            },
+    ) =
+        PaperPermissionsRuntime(
+            { environment },
+            PaperPermissionRuntimeClientFactory { _, _ -> client },
+            PaperPermissionInvalidationStarter(invalidationStarter),
+            platform,
+            NOPLogger.NOP_LOGGER,
+            java.time.Clock.fixed(NOW, java.time.ZoneOffset.UTC),
+        )
 
     private fun environment(nats: Boolean = false) = buildMap {
         put("PERMISSIONS_SERVICE_URL", "http://permissions:8080")
@@ -224,11 +294,35 @@ class PaperPermissionsRuntimeTest {
         if (nats) put("NATS_URL", "nats://nats:4222")
     }
 
-    private fun snapshot(playerId: UUID, version: Long = 1, refreshAfter: Instant = NOW.plusSeconds(300), allowPatterns: List<PermissionGrant> = emptyList()) =
-        PermissionSnapshot(playerId, version, NOW.minusSeconds(30), refreshAfter, NOW.plusSeconds(3600), allowPatterns, emptyList(), emptySet(), emptyList())
+    private fun snapshot(
+        playerId: UUID,
+        version: Long = 1,
+        refreshAfter: Instant = NOW.plusSeconds(300),
+        allowPatterns: List<PermissionGrant> = emptyList(),
+    ) =
+        PermissionSnapshot(
+            playerId,
+            version,
+            NOW.minusSeconds(30),
+            refreshAfter,
+            NOW.plusSeconds(3600),
+            allowPatterns,
+            emptyList(),
+            emptySet(),
+            emptyList(),
+        )
 
-    private fun grant(pattern: String) = PermissionGrant(PermissionEffect.ALLOW, pattern, PermissionScope.global(), PermissionGrantSource.ROLE)
-    private companion object { val NOW: Instant = Instant.parse("2026-08-23T12:00:00Z") }
+    private fun grant(pattern: String) =
+        PermissionGrant(
+            PermissionEffect.ALLOW,
+            pattern,
+            PermissionScope.global(),
+            PermissionGrantSource.ROLE,
+        )
+
+    private companion object {
+        val NOW: Instant = Instant.parse("2026-08-23T12:00:00Z")
+    }
 }
 
 private class TestPermissionPlayer(override val playerId: UUID) : PaperPermissionPlayer {
@@ -257,26 +351,74 @@ private class RecordingPlatform(
     val loginClose = Closeable()
     val quitClose = Closeable()
     val refreshClose = Closeable()
+
     override fun onlinePlayerIds() = players
+
     override fun onlinePlayers() = onlinePlayers
-    override fun validateInjection() { validated = true }
-    override fun registerPreLogin(handler: (UUID) -> PermissionLoginResult) = pre.also { preLogin = handler }
-    override fun registerPlayerLogin(handler: (PaperPermissionPlayer) -> PermissionLoginResult) = loginClose.also { login = handler }
-    override fun registerPlayerLoginRollback(handler: (PaperPermissionPlayer) -> Unit) = loginClose.also { loginRollback = handler }
-    override fun registerQuit(handler: (PaperPermissionPlayer) -> Unit) = quitClose.also { quit = handler }
-    override fun scheduleRefresh(intervalSeconds: Long, task: () -> Unit) = refreshClose.also { refresh = task }
-    override fun publish(permissions: Permissions) { this.permissions = permissions }
-    override fun unpublish() { unpublished = true; permissions = null }
-    override fun injectPermissions(player: PaperPermissionPlayer, permissions: Permissions) { injectionFailure?.let { throw it }; injected += player }
-    override fun refreshPermissions(playerId: UUID) { refreshed += playerId }
-    override fun retirePermissions(player: PaperPermissionPlayer) { retired += player; snapshotDuringRetirement = permissions?.snapshot(player.playerId) }
-    override fun restoreAllPermissions() { restoredAll = true }
+
+    override fun validateInjection() {
+        validated = true
+    }
+
+    override fun registerPreLogin(handler: (UUID) -> PermissionLoginResult) =
+        pre.also { preLogin = handler }
+
+    override fun registerPlayerLogin(handler: (PaperPermissionPlayer) -> PermissionLoginResult) =
+        loginClose.also { login = handler }
+
+    override fun registerPlayerLoginRollback(handler: (PaperPermissionPlayer) -> Unit) =
+        loginClose.also { loginRollback = handler }
+
+    override fun registerQuit(handler: (PaperPermissionPlayer) -> Unit) =
+        quitClose.also { quit = handler }
+
+    override fun scheduleRefresh(intervalSeconds: Long, task: () -> Unit) =
+        refreshClose.also { refresh = task }
+
+    override fun publish(permissions: Permissions) {
+        this.permissions = permissions
+    }
+
+    override fun unpublish() {
+        unpublished = true
+        permissions = null
+    }
+
+    override fun injectPermissions(player: PaperPermissionPlayer, permissions: Permissions) {
+        injectionFailure?.let { throw it }
+        injected += player
+    }
+
+    override fun refreshPermissions(playerId: UUID) {
+        refreshed += playerId
+    }
+
+    override fun retirePermissions(player: PaperPermissionPlayer) {
+        retired += player
+        snapshotDuringRetirement = permissions?.snapshot(player.playerId)
+    }
+
+    override fun restoreAllPermissions() {
+        restoredAll = true
+    }
+
     override fun runOnServerThread(task: () -> Unit) = task()
 }
 
-private class Closeable : AutoCloseable { var closed = false; override fun close() { closed = true } }
+private class Closeable : AutoCloseable {
+    var closed = false
+
+    override fun close() {
+        closed = true
+    }
+}
 
 private class Client(private val fetch: (UUID) -> PermissionSnapshot) : PermissionRuntimeClient {
     override fun fetchSnapshot(playerId: UUID, context: PermissionSnapshotContext) = fetch(playerId)
-    override fun registerManifest(manifest: PermissionManifest, sourceVersion: String, context: PermissionSnapshotContext) = PermissionManifestRegistrationResult.Accepted
+
+    override fun registerManifest(
+        manifest: PermissionManifest,
+        sourceVersion: String,
+        context: PermissionSnapshotContext,
+    ) = PermissionManifestRegistrationResult.Accepted
 }

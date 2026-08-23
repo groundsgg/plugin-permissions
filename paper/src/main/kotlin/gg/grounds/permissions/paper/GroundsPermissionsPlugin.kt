@@ -31,8 +31,7 @@ open class GroundsPermissionsPlugin : JavaPlugin() {
 internal class BukkitPaperPermissionPlatform(
     private val plugin: JavaPlugin,
     private val injector: PaperPermissibleInjector = PaperPermissibleInjector(),
-) :
-    PaperPermissionPlatform {
+) : PaperPermissionPlatform {
     private var servicePublished = false
     private val onlinePlayerIds =
         ConcurrentHashMap.newKeySet<UUID>().also { ids ->
@@ -82,7 +81,9 @@ internal class BukkitPaperPermissionPlatform(
             }
         )
 
-    override fun registerPlayerLogin(handler: (PaperPermissionPlayer) -> PermissionLoginResult): AutoCloseable =
+    override fun registerPlayerLogin(
+        handler: (PaperPermissionPlayer) -> PermissionLoginResult
+    ): AutoCloseable =
         registerListener(
             object : Listener {
                 @EventHandler(priority = EventPriority.LOWEST)
@@ -91,7 +92,10 @@ internal class BukkitPaperPermissionPlatform(
                     val player = BukkitPaperPermissionPlayer(event.player)
                     val result = handler(player)
                     if (!result.allowed) {
-                        event.disallow(PlayerLoginEvent.Result.KICK_OTHER, Component.text(result.message))
+                        event.disallow(
+                            PlayerLoginEvent.Result.KICK_OTHER,
+                            Component.text(result.message),
+                        )
                     } else {
                         onlinePlayerIds.add(player.playerId)
                     }
@@ -99,7 +103,9 @@ internal class BukkitPaperPermissionPlatform(
             }
         )
 
-    override fun registerPlayerLoginRollback(handler: (PaperPermissionPlayer) -> Unit): AutoCloseable =
+    override fun registerPlayerLoginRollback(
+        handler: (PaperPermissionPlayer) -> Unit
+    ): AutoCloseable =
         registerListener(
             object : Listener {
                 @EventHandler(priority = EventPriority.MONITOR)
@@ -172,11 +178,15 @@ internal class BukkitPaperPermissionPlatform(
 }
 
 internal class BukkitPaperPermissionPlayer(val player: Player) : PaperPermissionPlayer {
-    override val playerId: UUID get() = player.uniqueId
+    override val playerId: UUID
+        get() = player.uniqueId
 
-    override val session: Any get() = player
+    override val session: Any
+        get() = player
 }
 
 private fun PaperPermissionPlayer.requireBukkitPlayer(): Player =
     (this as? BukkitPaperPermissionPlayer)?.player
-        ?: throw IllegalArgumentException("Expected BukkitPaperPermissionPlayer, got ${javaClass.name}")
+        ?: throw IllegalArgumentException(
+            "Expected BukkitPaperPermissionPlayer, got ${javaClass.name}"
+        )

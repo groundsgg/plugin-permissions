@@ -15,8 +15,8 @@ import org.bukkit.plugin.java.JavaPlugin
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.mockbukkit.mockbukkit.MockBukkit
 
@@ -155,7 +155,10 @@ class GroundsPermissibleTest {
         return GroundsPermissible(
             player,
             plugin,
-            SnapshotPermissions(mapOf(player.uniqueId to snapshot), clock = Clock.fixed(now, ZoneOffset.UTC)),
+            SnapshotPermissions(
+                mapOf(player.uniqueId to snapshot),
+                clock = Clock.fixed(now, ZoneOffset.UTC),
+            ),
         )
     }
 

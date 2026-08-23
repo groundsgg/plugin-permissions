@@ -57,7 +57,10 @@ class PaperPermissibleInjectorTest {
         injector.inject(player, replacement)
 
         assertSame(replacement, PermissibleFieldAccess.locate(holder.javaClass).read(holder))
-        assertEquals(true, replacement.currentAttachments().single().permissions["grounds.migrated"])
+        assertEquals(
+            true,
+            replacement.currentAttachments().single().permissions["grounds.migrated"],
+        )
         injector.restore(player)
 
         assertSame(original, PermissibleFieldAccess.locate(holder.javaClass).read(holder))
@@ -109,10 +112,16 @@ class PaperPermissibleInjectorTest {
         val player = player()
         val holder = TestPlayer(PermissibleBase(player))
         val injector = PaperPermissibleInjector { holder }
-        injector.inject(player, GroundsPermissible(player, plugin(), SnapshotPermissions(emptyMap())))
+        injector.inject(
+            player,
+            GroundsPermissible(player, plugin(), SnapshotPermissions(emptyMap())),
+        )
 
         assertThrows(PaperPermissibleInjectionException::class.java) {
-            injector.inject(player, GroundsPermissible(player, plugin(), SnapshotPermissions(emptyMap())))
+            injector.inject(
+                player,
+                GroundsPermissible(player, plugin(), SnapshotPermissions(emptyMap())),
+            )
         }
     }
 
@@ -123,10 +132,11 @@ class PaperPermissibleInjectorTest {
 
         val exception =
             assertThrows(PaperPermissibleInjectionException::class.java) {
-                PaperPermissibleInjector { holder }.inject(
-                    player,
-                    GroundsPermissible(player, plugin(), SnapshotPermissions(emptyMap())),
-                )
+                PaperPermissibleInjector { holder }
+                    .inject(
+                        player,
+                        GroundsPermissible(player, plugin(), SnapshotPermissions(emptyMap())),
+                    )
             }
 
         assertTrue(exception.message.orEmpty().contains(CustomPermissible::class.java.name))
@@ -137,7 +147,10 @@ class PaperPermissibleInjectorTest {
         val player = player()
         val holder = TestPlayer(PermissibleBase(player))
         val injector = PaperPermissibleInjector { holder }
-        injector.inject(player, GroundsPermissible(player, plugin(), SnapshotPermissions(emptyMap())))
+        injector.inject(
+            player,
+            GroundsPermissible(player, plugin(), SnapshotPermissions(emptyMap())),
+        )
 
         injector.retire(player)
 
@@ -160,19 +173,20 @@ class PaperPermissibleInjectorTest {
         val releaseInject = CountDownLatch(1)
         val retireEntered = CountDownLatch(1)
         val failures = AtomicReference<Throwable?>()
-        val injector =
-            PaperPermissibleInjector {
-                when (targetCalls.incrementAndGet()) {
-                    1 -> {
-                        injectEntered.countDown()
-                        releaseInject.await()
-                    }
-                    2 -> retireEntered.countDown()
+        val injector = PaperPermissibleInjector {
+            when (targetCalls.incrementAndGet()) {
+                1 -> {
+                    injectEntered.countDown()
+                    releaseInject.await()
                 }
-                holder
+                2 -> retireEntered.countDown()
             }
+            holder
+        }
         val grounds = GroundsPermissible(player, plugin(), SnapshotPermissions(emptyMap()))
-        val injecting = Thread { runCatching { injector.inject(player, grounds) }.onFailure(failures::set) }
+        val injecting = Thread {
+            runCatching { injector.inject(player, grounds) }.onFailure(failures::set)
+        }
         val retiring = Thread { runCatching { injector.retire(player) }.onFailure(failures::set) }
 
         injecting.start()
@@ -184,7 +198,9 @@ class PaperPermissibleInjectorTest {
         retiring.join()
 
         assertEquals(null, failures.get())
-        assertTrue(PermissibleFieldAccess.locate(holder.javaClass).read(holder) !is GroundsPermissible)
+        assertTrue(
+            PermissibleFieldAccess.locate(holder.javaClass).read(holder) !is GroundsPermissible
+        )
     }
 
     private fun player(): org.bukkit.entity.Player {
