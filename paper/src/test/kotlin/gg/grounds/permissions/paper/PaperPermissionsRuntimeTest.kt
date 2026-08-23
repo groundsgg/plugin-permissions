@@ -83,6 +83,41 @@ class PaperPermissionsRuntimeTest {
     }
 
     @Test
+    fun `scheduled refresh reapplies the new registered-node decision`() {
+        val id = UUID.randomUUID()
+        val old = snapshot(id, refreshAfter = NOW.minusSeconds(1))
+        val fresh = snapshot(id, 2, allowPatterns = listOf(grant("registered.node")))
+        var calls = 0
+        val platform = RecordingPlatform(setOf(id))
+        val runtime = runtime(platform, environment(), Client { if (calls++ == 0) old else fresh })
+        runtime.start()
+        requireNotNull(platform.preLogin).invoke(id)
+        requireNotNull(platform.join).invoke(id)
+        assertEquals(false, platform.materialized[id]?.get("registered.node"))
+        requireNotNull(platform.refresh).invoke()
+        assertEquals(true, platform.materialized[id]?.get("registered.node"))
+    }
+
+    @Test
+    fun `plugin enable reapplies newly registered node for online players`() {
+        val id = UUID.randomUUID()
+        val platform = RecordingPlatform(setOf(id))
+        platform.nodes = mutableSetOf("registered.node")
+        val runtime =
+            runtime(
+                platform,
+                environment(),
+                Client { snapshot(id, allowPatterns = listOf(grant("new.node"))) },
+            )
+        runtime.start()
+        requireNotNull(platform.preLogin).invoke(id)
+        requireNotNull(platform.join).invoke(id)
+        platform.nodes += "new.node"
+        requireNotNull(platform.pluginEnable).invoke()
+        assertEquals(true, platform.materialized[id]?.get("new.node"))
+    }
+
+    @Test
     fun `replacement closes the previous NATS invalidation lifecycle`() {
         val platform = RecordingPlatform()
         val handles = mutableListOf<Closeable>()
@@ -155,6 +190,7 @@ class PaperPermissionsRuntimeTest {
         playerId: UUID,
         version: Long = 1,
         refreshAfter: Instant = NOW.plusSeconds(300),
+        allowPatterns: List<gg.grounds.permissions.PermissionGrant> = emptyList(),
     ) =
         PermissionSnapshot(
             playerId,
@@ -162,10 +198,18 @@ class PaperPermissionsRuntimeTest {
             NOW.minusSeconds(30),
             refreshAfter,
             NOW.plusSeconds(3600),
-            emptyList(),
+            allowPatterns,
             emptyList(),
             emptySet(),
             emptyList(),
+        )
+
+    private fun grant(pattern: String) =
+        gg.grounds.permissions.PermissionGrant(
+            gg.grounds.permissions.PermissionEffect.ALLOW,
+            pattern,
+            gg.grounds.permissions.PermissionScope.global(),
+            gg.grounds.permissions.PermissionGrantSource.ROLE,
         )
 
     private companion object {
@@ -177,12 +221,14 @@ private class RecordingPlatform(private val players: Set<UUID> = emptySet()) :
     PaperPermissionPlatform {
     var preLogin: ((UUID) -> PermissionLoginResult)? = null
     var join: ((UUID) -> Unit)? = null
+    var pluginEnable: (() -> Unit)? = null
     var quit: ((UUID) -> Unit)? = null
     var refresh: (() -> Unit)? = null
     var permissions: Permissions? = null
     var unpublished = false
     val materialized = mutableMapOf<UUID, Map<String, Boolean>>()
     var removedAll = false
+    var nodes = mutableSetOf("registered.node")
     val pre = Closeable()
     val quitClose = Closeable()
     val refreshClose = Closeable()
@@ -194,7 +240,7 @@ private class RecordingPlatform(private val players: Set<UUID> = emptySet()) :
 
     override fun registerPlayerJoin(handler: (UUID) -> Unit) = pre.also { join = handler }
 
-    override fun registerPluginEnable(handler: () -> Unit) = pre
+    override fun registerPluginEnable(handler: () -> Unit) = pre.also { pluginEnable = handler }
 
     override fun registerQuit(handler: (UUID) -> Unit) = quitClose.also { quit = handler }
 
@@ -211,15 +257,16 @@ private class RecordingPlatform(private val players: Set<UUID> = emptySet()) :
     }
 
     override fun materializePermissions(playerId: UUID, permissions: Permissions) {
-        materialized[playerId] =
-            mapOf("registered.node" to permissions.hasPermission(playerId, "registered.node"))
+        materialized[playerId] = nodes.associateWith { permissions.hasPermission(playerId, it) }
     }
 
     override fun removeMaterializedPermissions(playerId: UUID) {
         materialized.remove(playerId)
     }
 
-    override fun materializeOnlinePermissions(permissions: Permissions) {}
+    override fun materializeOnlinePermissions(permissions: Permissions) {
+        players.forEach { materializePermissions(it, permissions) }
+    }
 
     override fun runOnServerThread(task: () -> Unit) = task()
 

@@ -81,6 +81,24 @@ class PermissionSnapshotInvalidationCoordinatorTest {
         assertEquals(oldSnapshot, snapshots.get(playerId))
     }
 
+    @Test
+    fun `callback observes the committed refreshed snapshot`() {
+        val snapshots = InMemoryPermissionSnapshots(mapOf(playerId to oldSnapshot))
+        var observed: PermissionSnapshot? = null
+        val coordinator =
+            PermissionSnapshotInvalidationCoordinator(
+                snapshots,
+                { true },
+                { newSnapshot },
+                Executor(Runnable::run),
+                NOPLogger.NOP_LOGGER,
+            ) {
+                observed = snapshots.get(it)
+            }
+        coordinator.invalidate(playerId)
+        assertEquals(newSnapshot, observed)
+    }
+
     private fun coordinator(
         snapshots: InMemoryPermissionSnapshots,
         isOnline: (UUID) -> Boolean,
