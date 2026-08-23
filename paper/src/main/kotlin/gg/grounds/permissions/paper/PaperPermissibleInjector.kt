@@ -1,6 +1,7 @@
 package gg.grounds.permissions.paper
 
 import java.lang.reflect.Field
+import java.util.IdentityHashMap
 import org.bukkit.entity.Player
 import org.bukkit.permissions.Permission
 import org.bukkit.permissions.PermissionAttachment
@@ -14,7 +15,7 @@ class PaperPermissibleInjectionException(message: String, cause: Throwable? = nu
 class PaperPermissibleInjector(
     private val target: (Player) -> Any = { it },
 ) {
-    private val managed = mutableMapOf<java.util.UUID, ManagedPermissible>()
+    private val managed = IdentityHashMap<Player, ManagedPermissible>()
 
     fun validate(playerClass: Class<*>) {
         PermissibleFieldAccess.locate(playerClass)
@@ -37,7 +38,7 @@ class PaperPermissibleInjector(
                 }
         }
 
-        if (managed.containsKey(player.uniqueId)) {
+        if (managed.containsKey(player)) {
             throw failure(player, "Grounds permissible already injected")
         }
         try {
@@ -45,7 +46,7 @@ class PaperPermissibleInjector(
             permissible.importAttachments(state.attachments(current))
             state.clear(current)
             access.write(holder, permissible)
-            managed[player.uniqueId] = ManagedPermissible(current, permissible)
+            managed[player] = ManagedPermissible(current, permissible)
         } catch (exception: PaperPermissibleInjectionException) {
             throw exception
         } catch (exception: ReflectiveOperationException) {
@@ -55,26 +56,26 @@ class PaperPermissibleInjector(
 
     @Synchronized
     fun restore(player: Player) {
-        val state = managed[player.uniqueId] ?: return
+        val state = managed[player] ?: return
         val holder = target(player)
         val access = PermissibleFieldAccess.locate(holder.javaClass)
         val current = access.read(holder)
         if (current !== state.injected) throw foreignReplacement(player, current)
         current.clearPermissions()
         access.write(holder, state.original)
-        managed.remove(player.uniqueId)
+        managed.remove(player)
     }
 
     @Synchronized
     fun retire(player: Player) {
-        val state = managed[player.uniqueId] ?: return
+        val state = managed[player] ?: return
         val holder = target(player)
         val access = PermissibleFieldAccess.locate(holder.javaClass)
         val current = access.read(holder)
         if (current !== state.injected) throw foreignReplacement(player, current)
         current.clearPermissions()
         access.write(holder, RetiredPermissible)
-        managed.remove(player.uniqueId)
+        managed.remove(player)
     }
 
     private fun failure(player: Player, detail: String, cause: Throwable? = null) =

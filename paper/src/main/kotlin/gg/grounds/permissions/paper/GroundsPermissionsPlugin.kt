@@ -41,6 +41,9 @@ internal class BukkitPaperPermissionPlatform(
 
     override fun onlinePlayerIds(): Set<UUID> = onlinePlayerIds.toSet()
 
+    override fun onlinePlayers(): Set<PaperPermissionPlayer> =
+        plugin.server.onlinePlayers.mapTo(linkedSetOf(), ::BukkitPaperPermissionPlayer)
+
     override fun validateInjection() {
         val craftHumanEntity =
             Class.forName(
@@ -84,12 +87,27 @@ internal class BukkitPaperPermissionPlatform(
             object : Listener {
                 @EventHandler(priority = EventPriority.LOWEST)
                 fun onLogin(event: PlayerLoginEvent) {
+                    if (event.result != PlayerLoginEvent.Result.ALLOWED) return
                     val player = BukkitPaperPermissionPlayer(event.player)
                     val result = handler(player)
                     if (!result.allowed) {
                         event.disallow(PlayerLoginEvent.Result.KICK_OTHER, Component.text(result.message))
                     } else {
                         onlinePlayerIds.add(player.playerId)
+                    }
+                }
+            }
+        )
+
+    override fun registerPlayerLoginRollback(handler: (PaperPermissionPlayer) -> Unit): AutoCloseable =
+        registerListener(
+            object : Listener {
+                @EventHandler(priority = EventPriority.MONITOR)
+                fun onLoginFinal(event: PlayerLoginEvent) {
+                    if (event.result != PlayerLoginEvent.Result.ALLOWED) {
+                        val player = BukkitPaperPermissionPlayer(event.player)
+                        onlinePlayerIds.remove(player.playerId)
+                        handler(player)
                     }
                 }
             }
@@ -153,8 +171,10 @@ internal class BukkitPaperPermissionPlatform(
     }
 }
 
-internal data class BukkitPaperPermissionPlayer(val player: Player) : PaperPermissionPlayer {
+internal class BukkitPaperPermissionPlayer(val player: Player) : PaperPermissionPlayer {
     override val playerId: UUID get() = player.uniqueId
+
+    override val session: Any get() = player
 }
 
 private fun PaperPermissionPlayer.requireBukkitPlayer(): Player =

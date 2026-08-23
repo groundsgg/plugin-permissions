@@ -46,11 +46,15 @@ internal fun interface PaperPermissionInvalidationStarter {
 internal interface PaperPermissionPlatform {
     fun onlinePlayerIds(): Set<UUID>
 
+    fun onlinePlayers(): Set<PaperPermissionPlayer>
+
     fun validateInjection()
 
     fun registerPreLogin(handler: (UUID) -> PermissionLoginResult): AutoCloseable
 
     fun registerPlayerLogin(handler: (PaperPermissionPlayer) -> PermissionLoginResult): AutoCloseable
+
+    fun registerPlayerLoginRollback(handler: (PaperPermissionPlayer) -> Unit): AutoCloseable
 
     fun registerQuit(handler: (PaperPermissionPlayer) -> Unit): AutoCloseable
 
@@ -73,6 +77,8 @@ internal interface PaperPermissionPlatform {
 
 internal interface PaperPermissionPlayer {
     val playerId: UUID
+
+    val session: Any
 }
 
 internal class PaperPermissionsRuntime
@@ -93,9 +99,11 @@ internal constructor(
     private var preLoginRegistration: AutoCloseable? = null
     private var quitRegistration: AutoCloseable? = null
     private var loginRegistration: AutoCloseable? = null
+    private var loginRollbackRegistration: AutoCloseable? = null
     private var refreshRegistration: AutoCloseable? = null
     private var published = false
     private var permissions: Permissions? = null
+    private val activeSessions = mutableMapOf<UUID, PaperPermissionPlayer>()
 
     fun start() {
         stop()
@@ -122,13 +130,17 @@ internal constructor(
         published = true
         preLoginRegistration = platform.registerPreLogin(loader::loadSnapshot)
         loginRegistration = platform.registerPlayerLogin(::injectOnLogin)
+        loginRollbackRegistration = platform.registerPlayerLoginRollback(::rollbackLogin)
         quitRegistration =
             platform.registerQuit { player ->
-                platform.retirePermissions(player)
-                snapshots.merge(emptyMap()) { candidateId, _ -> candidateId == player.playerId }
+                retireSession(player)
             }
         refreshRegistration =
             platform.scheduleRefresh(config.refreshIntervalSeconds) { refreshSweep.run() }
+        platform.onlinePlayers().forEach { player ->
+            if (snapshots.get(player.playerId) == null) loader.loadSnapshot(player.playerId)
+            injectOnLogin(player)
+        }
         return invalidationStarter.start(
             config.snapshotInvalidations,
             snapshots,
@@ -160,11 +172,14 @@ internal constructor(
         preLoginRegistration = null
         loginRegistration.closeQuietly()
         loginRegistration = null
+        loginRollbackRegistration.closeQuietly()
+        loginRollbackRegistration = null
         quitRegistration.closeQuietly()
         quitRegistration = null
         refreshRegistration.closeQuietly()
         refreshRegistration = null
         platform.runOnServerThread(platform::restoreAllPermissions)
+        activeSessions.clear()
         if (published) platform.unpublish()
         published = false
         permissions = null
@@ -179,6 +194,7 @@ internal constructor(
         if (snapshots.get(player.playerId) == null) return PermissionLoginResult.denied()
         return try {
             platform.injectPermissions(player, permissions)
+            activeSessions[player.playerId] = player
             PermissionLoginResult.allowed(snapshots.get(player.playerId)!!)
         } catch (exception: RuntimeException) {
             logger.error("Permission injection failed (playerId={})", player.playerId, exception)
@@ -188,6 +204,15 @@ internal constructor(
 
     private fun refreshCommandsOnServerThread(playerId: UUID) {
         platform.runOnServerThread { platform.refreshPermissions(playerId) }
+    }
+
+    private fun rollbackLogin(player: PaperPermissionPlayer) = retireSession(player)
+
+    private fun retireSession(player: PaperPermissionPlayer) {
+        if (activeSessions[player.playerId]?.session !== player.session) return
+        platform.retirePermissions(player)
+        activeSessions.remove(player.playerId)
+        snapshots.merge(emptyMap()) { candidateId, _ -> candidateId == player.playerId }
     }
 
     companion object {
