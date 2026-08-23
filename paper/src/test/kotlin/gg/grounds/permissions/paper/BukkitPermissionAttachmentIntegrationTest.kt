@@ -1,5 +1,6 @@
 package gg.grounds.permissions.paper
 
+import gg.grounds.permissions.PermissionCheckScope
 import gg.grounds.permissions.PermissionEffect
 import gg.grounds.permissions.PermissionGrant
 import gg.grounds.permissions.PermissionGrantSource
@@ -26,6 +27,7 @@ class BukkitPermissionAttachmentIntegrationTest {
         val player = server.addPlayer()
         server.pluginManager.addPermission(Permission("ground.test.read"))
         server.pluginManager.addPermission(Permission("ground.test.delete"))
+        server.pluginManager.addPermission(Permission("ground.test.scope"))
         val now = Instant.parse("2026-08-23T12:00:00Z")
         val snapshot =
             PermissionSnapshot(
@@ -34,23 +36,45 @@ class BukkitPermissionAttachmentIntegrationTest {
                 now,
                 now,
                 now.plusSeconds(60),
-                listOf(grant(PermissionEffect.ALLOW, "ground.test.*")),
-                listOf(grant(PermissionEffect.DENY, "ground.test.delete")),
+                listOf(
+                    grant(PermissionEffect.ALLOW, "ground.test.*"),
+                    grant(
+                        PermissionEffect.ALLOW,
+                        "ground.test.scope",
+                        PermissionScope.environment("stage"),
+                    ),
+                ),
+                listOf(
+                    grant(PermissionEffect.DENY, "ground.test.delete"),
+                    grant(PermissionEffect.DENY, "ground.test.scope"),
+                ),
                 emptySet(),
                 emptyList(),
             )
         val permissions =
             SnapshotPermissions(
                 mapOf(player.uniqueId to snapshot),
+                PermissionCheckScope(
+                    environment = "stage",
+                    serverType = "buildserver",
+                    server = "buildserver",
+                ),
                 clock = Clock.fixed(now, ZoneOffset.UTC),
             )
 
-        BukkitPaperPermissionPlatform(plugin).materializePermissions(player.uniqueId, permissions)
+        val platform = BukkitPaperPermissionPlatform(plugin)
+        platform.materializePermissions(player.uniqueId, permissions)
 
         assertTrue(player.hasPermission("ground.test.read"))
         assertFalse(player.hasPermission("ground.test.delete"))
+        assertTrue(player.hasPermission("ground.test.scope"))
+        platform.removeAllMaterializedPermissions()
+        assertFalse(player.hasPermission("ground.test.read"))
     }
 
-    private fun grant(effect: PermissionEffect, pattern: String) =
-        PermissionGrant(effect, pattern, PermissionScope.global(), PermissionGrantSource.ROLE)
+    private fun grant(
+        effect: PermissionEffect,
+        pattern: String,
+        scope: PermissionScope = PermissionScope.global(),
+    ) = PermissionGrant(effect, pattern, scope, PermissionGrantSource.ROLE)
 }
