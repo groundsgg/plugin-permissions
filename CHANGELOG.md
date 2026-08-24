@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/groundsgg/plugin-permissions/compare/v0.10.0...v0.11.0) (2026-08-24)
+
+
+### Features
+
+* **paper:** inject Grounds player permissible ([#32](https://github.com/groundsgg/plugin-permissions/issues/32)) ([386afc5](https://github.com/groundsgg/plugin-permissions/commit/386afc5f2d55e4dc944d8ed24930373425fe5199))
+
 ## [0.10.0](https://github.com/groundsgg/plugin-permissions/compare/v0.9.1...v0.10.0) (2026-08-23)
 
 
