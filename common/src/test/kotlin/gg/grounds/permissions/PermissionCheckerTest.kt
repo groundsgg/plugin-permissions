@@ -82,6 +82,42 @@ class PermissionCheckerTest {
     }
 
     @Test
+    fun permissionDecisionDistinguishesAllowDenyAndUnset() {
+        val permissions =
+            permissions(
+                allowPatterns = listOf(allow("buildsystem.*")),
+                denyPatterns = listOf(deny("buildsystem.delete")),
+            )
+
+        assertEquals(
+            PermissionDecision.ALLOW,
+            permissions.permissionDecision(playerId, "buildsystem.import"),
+        )
+        assertEquals(
+            PermissionDecision.DENY,
+            permissions.permissionDecision(playerId, "buildsystem.delete"),
+        )
+        assertEquals(
+            PermissionDecision.UNSET,
+            permissions.permissionDecision(playerId, "chat.send"),
+        )
+    }
+
+    @Test
+    fun expiredSnapshotHasNoExplicitDecision() {
+        val permissions =
+            SnapshotPermissions(
+                mapOf(playerId to snapshot(listOf(allow("*")), expiresAt = now)),
+                clock = clock,
+            )
+
+        assertEquals(
+            PermissionDecision.UNSET,
+            permissions.permissionDecision(playerId, "buildsystem.import"),
+        )
+    }
+
+    @Test
     fun exactAndPrefixWildcardPatternsMatchExpectedPermissions() {
         val permissions = permissions(allowPatterns = listOf(allow("chat.send"), allow("region.*")))
 
