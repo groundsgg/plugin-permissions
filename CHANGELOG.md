@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.0](https://github.com/groundsgg/plugin-permissions/compare/v0.11.0...v1.0.0) (2026-10-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* **minestom:** plugin-permissions-minestom now requires Minestom 26.3.
+
+### Features
+
+* **minestom:** build against minecraft 26.3 ([#34](https://github.com/groundsgg/plugin-permissions/issues/34)) ([6cb2018](https://github.com/groundsgg/plugin-permissions/commit/6cb20186c7e08d37233f45db09f0c753b9065092))
+
 ## [0.11.0](https://github.com/groundsgg/plugin-permissions/compare/v0.10.0...v0.11.0) (2026-08-24)
 
 
