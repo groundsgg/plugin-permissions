@@ -9,3 +9,8 @@ on:
 jobs:
   reusable:
     uses: groundsgg/.github/.github/workflows/gradle-ci.yml@main
+    secrets:
+      # Read-only, for resolving Minestom 26.3: its Maven package is owned by the
+      # private groundsgg/minestom fork, and this job's GITHUB_TOKEN is scoped to
+      # plugin-permissions alone. Unset falls back to GITHUB_TOKEN.
+      PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
