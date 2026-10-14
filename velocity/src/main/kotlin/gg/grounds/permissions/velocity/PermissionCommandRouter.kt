@@ -72,7 +72,11 @@ class PermissionCommandRouter(
             if (arguments.size == 6) {
                 PermissionCheckScopeArgument.parseOrNull(arguments[5])
                     ?: return PermissionCommandResult.Failure(
-                        "Invalid permission scope: ${arguments[5]}"
+                        localized =
+                            LocalizedPermissionMessage(
+                                PermissionsMessage.INVALID_SCOPE,
+                                mapOf("scope" to arguments[5]),
+                            )
                     )
             } else {
                 defaultScope
@@ -106,34 +110,49 @@ class PermissionCommandRouter(
 
     private fun help(): PermissionCommandResult =
         PermissionCommandResult.Success(
-            listOf(
-                "/perm status",
-                "/perm user <player> info",
-                "/perm user <player> permission check <node> [scope]",
-                "/perm user <player> refresh",
-                "/perm refresh <player|all>",
-            )
+            localizedLines =
+                listOf(
+                    LocalizedPermissionMessage(PermissionsMessage.HELP_STATUS),
+                    LocalizedPermissionMessage(PermissionsMessage.HELP_USER_INFO),
+                    LocalizedPermissionMessage(PermissionsMessage.HELP_PERMISSION_CHECK),
+                    LocalizedPermissionMessage(PermissionsMessage.HELP_USER_REFRESH),
+                    LocalizedPermissionMessage(PermissionsMessage.HELP_REFRESH),
+                )
         )
 
     private fun usageStatus(): PermissionCommandResult.Failure =
-        PermissionCommandResult.Failure("Usage: /perm status")
+        PermissionCommandResult.Failure(
+            localized = LocalizedPermissionMessage(PermissionsMessage.USAGE_STATUS)
+        )
 
     private fun usageUser(): PermissionCommandResult.Failure =
-        PermissionCommandResult.Failure("Usage: /perm user <player> <info|refresh|permission>")
+        PermissionCommandResult.Failure(
+            localized = LocalizedPermissionMessage(PermissionsMessage.USAGE_USER)
+        )
 
     private fun usageInfo(): PermissionCommandResult.Failure =
-        PermissionCommandResult.Failure("Usage: /perm user <player> info")
+        PermissionCommandResult.Failure(
+            localized = LocalizedPermissionMessage(PermissionsMessage.USAGE_INFO)
+        )
 
     private fun usageRefresh(): PermissionCommandResult.Failure =
-        PermissionCommandResult.Failure("Usage: /perm refresh <player|all>")
+        PermissionCommandResult.Failure(
+            localized = LocalizedPermissionMessage(PermissionsMessage.USAGE_REFRESH)
+        )
 
     private fun usagePermissionCheck(): PermissionCommandResult.Failure =
         PermissionCommandResult.Failure(
-            "Usage: /perm user <player> permission check <node> [scope]"
+            localized = LocalizedPermissionMessage(PermissionsMessage.USAGE_PERMISSION_CHECK)
         )
 
     private fun playerOffline(name: String): PermissionCommandResult.Failure =
-        PermissionCommandResult.Failure("Player is not online: $name")
+        PermissionCommandResult.Failure(
+            localized =
+                LocalizedPermissionMessage(
+                    PermissionsMessage.PLAYER_OFFLINE,
+                    mapOf("player" to name),
+                )
+        )
 
     private fun filterPrefix(values: List<String>, prefix: String): List<String> =
         values.filter { it.startsWith(prefix, ignoreCase = true) }
