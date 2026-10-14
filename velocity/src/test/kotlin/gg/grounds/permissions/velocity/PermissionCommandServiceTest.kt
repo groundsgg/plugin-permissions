@@ -108,7 +108,9 @@ class PermissionCommandServiceTest {
         val result = service.check(playerId, "chat.send", PermissionCheckScopeArgument.global())
 
         assertEquals(
-            PermissionCommandResult.Failure("No permission snapshot is loaded for this player."),
+            PermissionCommandResult.Failure(
+                localized = LocalizedPermissionMessage(PermissionsMessage.NO_SNAPSHOT)
+            ),
             result,
         )
     }
@@ -132,7 +134,7 @@ class PermissionCommandServiceTest {
 
         assertEquals(
             PermissionCommandResult.Failure(
-                "Permissions are currently unavailable. Please try again later."
+                localized = LocalizedPermissionMessage(PermissionsMessage.PERMISSIONS_UNAVAILABLE)
             ),
             result,
         )
@@ -186,7 +188,31 @@ class PermissionCommandServiceTest {
 
         val result = router.execute(arrayOf("user", "Ada", "info"))
 
-        assertEquals(PermissionCommandResult.Failure("Player is not online: Ada"), result)
+        assertEquals(
+            PermissionCommandResult.Failure(
+                localized =
+                    LocalizedPermissionMessage(
+                        PermissionsMessage.PLAYER_OFFLINE,
+                        mapOf("player" to "Ada"),
+                    )
+            ),
+            result,
+        )
+    }
+
+    @Test
+    fun `external refresh failure data remains literal and unclassified`() {
+        val service = service { _, _ ->
+            PermissionLoginResult(
+                allowed = false,
+                snapshot = null,
+                message = "upstream <red>failure</red>",
+            )
+        }
+
+        val result = service.refresh(playerId, "Alex")
+
+        assertEquals(PermissionCommandResult.Failure("upstream <red>failure</red>"), result)
     }
 
     @Test
@@ -216,7 +242,28 @@ class PermissionCommandServiceTest {
 
         assertEquals(
             PermissionCommandResult.Failure(
-                "Usage: /perm user <player> permission check <node> [scope]"
+                localized = LocalizedPermissionMessage(PermissionsMessage.USAGE_PERMISSION_CHECK)
+            ),
+            result,
+        )
+    }
+
+    @Test
+    fun `router classifies invalid scope without parsing its English fallback`() {
+        val router = router()
+
+        val result =
+            router.execute(
+                arrayOf("user", "Alex", "permission", "check", "chat.send", "world=lobby")
+            )
+
+        assertEquals(
+            PermissionCommandResult.Failure(
+                localized =
+                    LocalizedPermissionMessage(
+                        PermissionsMessage.INVALID_SCOPE,
+                        mapOf("scope" to "world=lobby"),
+                    )
             ),
             result,
         )

@@ -67,7 +67,8 @@ class PermissionCommandService(
     fun refresh(playerId: UUID, username: String): PermissionCommandResult {
         val result = refreshSnapshot(playerId, username)
         if (!result.allowed || result.snapshot == null) {
-            return PermissionCommandResult.Failure(result.message)
+            return result.localized?.let { PermissionCommandResult.Failure(localized = it) }
+                ?: PermissionCommandResult.Failure(message = result.message)
         }
 
         snapshots.put(result.snapshot)
@@ -77,7 +78,9 @@ class PermissionCommandService(
     }
 
     private fun noSnapshot(): PermissionCommandResult.Failure =
-        PermissionCommandResult.Failure("No permission snapshot is loaded for this player.")
+        PermissionCommandResult.Failure(
+            localized = LocalizedPermissionMessage(PermissionsMessage.NO_SNAPSHOT)
+        )
 }
 
 data class PermissionCommandStatus(
@@ -88,10 +91,21 @@ data class PermissionCommandStatus(
 )
 
 sealed interface PermissionCommandResult {
-    data class Success(val lines: List<String>) : PermissionCommandResult
+    data class Success(
+        val lines: List<String> = emptyList(),
+        val localizedLines: List<LocalizedPermissionMessage>? = null,
+    ) : PermissionCommandResult
 
-    data class Failure(val message: String) : PermissionCommandResult
+    data class Failure(
+        val message: String? = null,
+        val localized: LocalizedPermissionMessage? = null,
+    ) : PermissionCommandResult
 }
+
+data class LocalizedPermissionMessage(
+    val key: PermissionsMessage,
+    val args: Map<String, Any> = emptyMap(),
+)
 
 data class PermissionCheckScopeArgument(
     val serverType: String? = null,

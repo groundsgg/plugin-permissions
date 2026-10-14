@@ -4,11 +4,13 @@ import com.velocitypowered.api.event.EventTask
 import com.velocitypowered.api.event.Subscribe
 import com.velocitypowered.api.event.connection.PreLoginEvent
 import com.velocitypowered.api.util.UuidUtils
+import gg.grounds.i18n.Translations
 import gg.grounds.permissions.InMemoryPermissionSnapshots
 import gg.grounds.permissions.PermissionSnapshot
 import gg.grounds.permissions.client.PermissionRuntimeClient
 import gg.grounds.permissions.client.PermissionSnapshotContext
 import gg.grounds.permissions.client.SnapshotUnavailableException
+import java.util.Locale
 import java.util.UUID
 import net.kyori.adventure.text.Component
 import org.slf4j.Logger
@@ -18,6 +20,8 @@ class PermissionLoginListener(
     private val snapshots: InMemoryPermissionSnapshots,
     private val client: PermissionRuntimeClient,
     private val context: PermissionSnapshotContext,
+    private val messages: Translations,
+    private val loginLocale: Locale = Locale.ENGLISH,
 ) {
     @Subscribe
     fun onPreLogin(event: PreLoginEvent): EventTask {
@@ -26,10 +30,18 @@ class PermissionLoginListener(
         return EventTask.async {
             val result = loadSnapshot(playerId)
             if (!result.allowed) {
-                event.result =
-                    PreLoginEvent.PreLoginComponentResult.denied(Component.text(result.message))
+                event.result = PreLoginEvent.PreLoginComponentResult.denied(denialMessage(result))
             }
         }
+    }
+
+    internal fun denialMessage(result: PermissionLoginResult): Component {
+        val localized = result.localized ?: return Component.text(requireNotNull(result.message))
+        return messages.render(
+            localized.key,
+            loginLocale,
+            *localized.args.map { it.key to it.value }.toTypedArray(),
+        )
     }
 
     internal fun loadSnapshot(playerId: UUID): PermissionLoginResult {
@@ -68,17 +80,18 @@ class PermissionLoginListener(
 data class PermissionLoginResult(
     val allowed: Boolean,
     val snapshot: PermissionSnapshot?,
-    val message: String,
+    val message: String? = null,
+    val localized: LocalizedPermissionMessage? = null,
 ) {
     companion object {
         fun allowed(snapshot: PermissionSnapshot): PermissionLoginResult =
-            PermissionLoginResult(allowed = true, snapshot = snapshot, message = "")
+            PermissionLoginResult(allowed = true, snapshot = snapshot)
 
         fun denied(): PermissionLoginResult =
             PermissionLoginResult(
                 allowed = false,
                 snapshot = null,
-                message = "Permissions are currently unavailable. Please try again later.",
+                localized = LocalizedPermissionMessage(PermissionsMessage.PERMISSIONS_UNAVAILABLE),
             )
     }
 }

@@ -11,6 +11,7 @@ import com.velocitypowered.api.plugin.Plugin
 import com.velocitypowered.api.proxy.ProxyServer
 import com.velocitypowered.api.scheduler.ScheduledTask
 import gg.grounds.BuildInfo
+import gg.grounds.i18n.Translations
 import gg.grounds.permissions.InMemoryPermissionSnapshots
 import gg.grounds.permissions.PermissionCheckScope
 import gg.grounds.permissions.PermissionSnapshotRefreshSweep
@@ -27,6 +28,7 @@ import gg.grounds.permissions.client.PermissionSnapshotContext
 import gg.grounds.permissions.client.SnapshotUnavailableException
 import gg.grounds.permissions.invalidation.PermissionSnapshotInvalidationConfig
 import gg.grounds.permissions.invalidation.PermissionSnapshotInvalidationLifecycle
+import gg.grounds.presentation.VelocitySystemMessages
 import gg.grounds.proxy.api.PlayerRoleQuery
 import gg.grounds.proxy.api.ProxyServiceRegistry
 import java.util.concurrent.TimeUnit
@@ -113,6 +115,12 @@ internal constructor(
                 }
         val runtimeStatus = PermissionRuntimeStatus()
         val runtimeClient = runtimeClientFactory.create(config.service, runtimeStatus)
+        val messages =
+            Translations.forBundleWithSystemRenderer(
+                "gg.grounds.permissions.messages",
+                javaClass.classLoader,
+                systemRenderer = VelocitySystemMessages.renderer,
+            )
         val manifestScheduler =
             ManifestRegistrationScheduler(client = runtimeClient, status = runtimeStatus)
         this.manifestScheduler = manifestScheduler
@@ -124,6 +132,7 @@ internal constructor(
                 snapshots = snapshots,
                 client = runtimeClient,
                 context = config.context,
+                messages = messages,
             )
         proxy.eventManager.register(this, listener)
 
@@ -217,6 +226,7 @@ internal constructor(
                             permission,
                         )
                     },
+                    messages = messages,
                 )
             val commandMeta =
                 proxy.commandManager.metaBuilder("permissions").aliases("perm").plugin(this).build()

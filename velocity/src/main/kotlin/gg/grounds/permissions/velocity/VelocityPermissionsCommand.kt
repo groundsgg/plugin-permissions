@@ -4,8 +4,9 @@ import com.velocitypowered.api.command.CommandSource
 import com.velocitypowered.api.command.SimpleCommand
 import com.velocitypowered.api.proxy.Player
 import com.velocitypowered.api.proxy.ProxyServer
+import gg.grounds.i18n.Translations
+import gg.grounds.presentation.VelocitySystemMessages
 import java.util.UUID
-import net.kyori.adventure.text.Component
 
 class VelocityPermissionsCommand(
     private val plugin: Any,
@@ -13,6 +14,12 @@ class VelocityPermissionsCommand(
     private val router: PermissionCommandRouter,
     private val commandPermissions: PermissionCommandPermissions,
     private val isAuthorized: (CommandSource, String) -> Boolean,
+    private val messages: Translations =
+        Translations.forBundleWithSystemRenderer(
+            "gg.grounds.permissions.messages",
+            VelocityPermissionsCommand::class.java.classLoader,
+            systemRenderer = VelocitySystemMessages.renderer,
+        ),
 ) : SimpleCommand {
     override fun execute(invocation: SimpleCommand.Invocation) {
         val source = invocation.source()
@@ -32,10 +39,33 @@ class VelocityPermissionsCommand(
 
     private fun sendResult(source: CommandSource, result: PermissionCommandResult) {
         when (result) {
-            is PermissionCommandResult.Success ->
-                result.lines.forEach { source.sendMessage(Component.text(it)) }
-            is PermissionCommandResult.Failure -> source.sendMessage(Component.text(result.message))
+            is PermissionCommandResult.Success -> {
+                val localized = result.localizedLines
+                if (localized != null) {
+                    localized.forEach { sendLocalized(source, it) }
+                } else {
+                    result.lines.forEach { line ->
+                        messages.send(source, PermissionsMessage.COMMAND_OUTPUT, "message" to line)
+                    }
+                }
+            }
+            is PermissionCommandResult.Failure -> {
+                val localized = result.localized
+                if (localized != null) {
+                    sendLocalized(source, localized)
+                } else {
+                    messages.send(
+                        source,
+                        PermissionsMessage.COMMAND_FAILURE,
+                        "message" to requireNotNull(result.message),
+                    )
+                }
+            }
         }
+    }
+
+    private fun sendLocalized(source: CommandSource, message: LocalizedPermissionMessage) {
+        messages.send(source, message.key, *message.args.map { it.key to it.value }.toTypedArray())
     }
 
     companion object {
