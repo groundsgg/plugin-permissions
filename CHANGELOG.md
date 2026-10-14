@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/groundsgg/plugin-permissions/compare/v1.0.0...v1.1.0) (2026-10-14)
+
+
+### Features
+
+* **chat:** unify localized permissions messages ([#36](https://github.com/groundsgg/plugin-permissions/issues/36)) ([876f830](https://github.com/groundsgg/plugin-permissions/commit/876f830483c072dd78308bcb93d62bfa4654b273))
+
 ## [1.0.0](https://github.com/groundsgg/plugin-permissions/compare/v0.11.0...v1.0.0) (2026-10-05)
 
 
