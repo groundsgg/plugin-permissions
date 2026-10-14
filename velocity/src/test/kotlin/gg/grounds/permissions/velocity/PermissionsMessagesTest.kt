@@ -2,6 +2,7 @@ package gg.grounds.permissions.velocity
 
 import gg.grounds.i18n.BundleCheck
 import gg.grounds.i18n.SystemCategory
+import gg.grounds.i18n.SystemLevel
 import gg.grounds.i18n.Translations
 import java.util.Locale
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
@@ -23,7 +24,8 @@ class PermissionsMessagesTest {
             )
 
         assertEquals("<red>Player is not online: Ada</red>", plain.serialize(rendered))
-        assertEquals(SystemCategory.ERROR, PermissionsMessage.COMMAND_FAILURE.category)
+        assertEquals(SystemCategory.GENERAL, PermissionsMessage.COMMAND_FAILURE.category)
+        assertEquals(SystemLevel.ERROR, PermissionsMessage.COMMAND_FAILURE.level)
     }
 
     @Test
