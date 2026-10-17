@@ -18,10 +18,19 @@ import java.util.UUID
  * refresh. A player with no snapshot — not logged in here, or the fetch failed — is `null`, and
  * callers draw the name plainly rather than waiting on anything.
  */
-class SnapshotRoleQuery(private val snapshots: InMemoryPermissionSnapshots) : PlayerRoleQuery {
+class SnapshotRoleQuery
+@JvmOverloads
+constructor(
+    private val snapshots: InMemoryPermissionSnapshots,
+    private val remoteRoleMetadata: (UUID) -> List<RoleMetadata>? = { null },
+    private val isLocalPlayer: (UUID) -> Boolean = { true },
+) : PlayerRoleQuery {
 
     override fun highestRoleOf(playerId: UUID): PlayerRole? =
-        snapshots.get(playerId)?.roleMetadata?.minWithOrNull(HIGHEST_FIRST)?.toPlayerRole()
+        (snapshots.get(playerId)?.takeIf { isLocalPlayer(playerId) }?.roleMetadata
+                ?: remoteRoleMetadata(playerId))
+            ?.minWithOrNull(HIGHEST_FIRST)
+            ?.toPlayerRole()
 
     private fun RoleMetadata.toPlayerRole(): PlayerRole =
         PlayerRole(
