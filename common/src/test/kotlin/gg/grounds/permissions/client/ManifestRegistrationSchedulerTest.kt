@@ -19,6 +19,18 @@ class ManifestRegistrationSchedulerTest {
     private val manifest = manifest("plugin-chat")
 
     @Test
+    fun `successful registration is not submitted again on a later discovery pass`() {
+        val client = FakeRuntimeClient(PermissionManifestRegistrationResult.Accepted)
+        val delays = FakeRegistrationDelayScheduler()
+        val scheduler = scheduler(client, delays)
+        scheduler.register(manifest, "1.4.0", PermissionSnapshotContext())
+        delays.runNext()
+        scheduler.register(manifest, "1.4.0", PermissionSnapshotContext())
+        assertFalse(delays.hasPending())
+        assertEquals(1, client.registrations)
+    }
+
+    @Test
     fun `starts registration asynchronously and allows only one active registration per source`() {
         val client = FakeRuntimeClient(PermissionManifestRegistrationResult.Accepted)
         val delays = FakeRegistrationDelayScheduler()

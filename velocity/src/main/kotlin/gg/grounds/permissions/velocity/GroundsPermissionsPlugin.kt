@@ -369,7 +369,7 @@ internal constructor(
         collection.manifests.forEach { collected ->
             manifestScheduler.register(
                 manifest = collected.manifest,
-                sourceVersion = collected.origin.version,
+                sourceVersion = collected.sourceVersion,
                 context = config.context,
             )
         }

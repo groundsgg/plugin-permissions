@@ -44,8 +44,14 @@ class ManifestRegistrationScheduler(
     ) {
         check(!closed.get()) { "Manifest registration scheduler is closed" }
         val state = RegistrationState(manifest, sourceVersion, context)
-        if (registrations.putIfAbsent(manifest.source, state) == null) {
+        val existing = registrations.putIfAbsent(manifest.source, state)
+        if (existing == null) {
             schedule(state, Duration.ZERO)
+        } else if (existing.manifest != manifest || existing.sourceVersion != sourceVersion) {
+            logger.log(
+                System.Logger.Level.ERROR,
+                "Conflicting permission manifest rescan (source=${manifest.source}); restart with a consistent artifact set.",
+            )
         }
     }
 
@@ -60,11 +66,10 @@ class ManifestRegistrationScheduler(
                 }
         ) {
             PermissionManifestRegistrationResult.Accepted -> {
-                registrations.remove(state.manifest.source, state)
                 status.recordManifestSuccess(clock.instant())
                 logger.log(
                     System.Logger.Level.INFO,
-                    "Permission manifest registered successfully (source=${state.manifest.source}, permissionCount=${state.manifest.permissions.size})",
+                    "Permission manifest registered successfully (source=${state.manifest.source}, sourceVersion=${state.sourceVersion}, permissionCount=${state.manifest.permissions.size})",
                 )
             }
             is PermissionManifestRegistrationResult.RetryableFailure -> {

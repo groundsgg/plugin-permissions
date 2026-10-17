@@ -247,7 +247,7 @@ internal constructor(
         manifestScheduler: ManifestRegistrationScheduler,
         context: PermissionSnapshotContext,
     ) {
-        val collection = collectActivePermissionManifests(activeProviders)
+        val collection = collectActivePermissionManifests(activeProviders, javaClass.classLoader)
         collection.failures.forEach { failure ->
             logger.warn(
                 "Permission manifest skipped (originId={}, originVersion={}, reason={})",
@@ -259,7 +259,7 @@ internal constructor(
         collection.manifests.forEach { collected ->
             manifestScheduler.register(
                 manifest = collected.manifest,
-                sourceVersion = collected.origin.version,
+                sourceVersion = collected.sourceVersion,
                 context = context,
             )
         }

@@ -4,14 +4,18 @@ import com.velocitypowered.api.plugin.PluginContainer
 import com.velocitypowered.api.plugin.PluginDescription
 import gg.grounds.permissions.catalog.PermissionManifest
 import gg.grounds.permissions.catalog.PermissionManifestCollector
-import java.io.ByteArrayInputStream
-import java.io.InputStream
 import java.lang.reflect.Proxy
+import java.net.URLClassLoader
+import java.nio.file.Files
+import java.nio.file.Path
 import java.util.Optional
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 
 class PermissionManifestDiscoveryTest {
+    @TempDir lateinit var directory: Path
+
     @Test
     fun `collects manifests from active plugin instances and skips plugins without one`() {
         val first = manifestInstance("first-plugin")
@@ -64,23 +68,14 @@ class PermissionManifestDiscoveryTest {
             }
         }
 
-    private class ManifestClassLoader(private val source: String) : ClassLoader() {
-        override fun getResourceAsStream(name: String): InputStream? =
-            if (name == PermissionManifest.RESOURCE_PATH) {
-                ByteArrayInputStream(
-                    """
-                    {
-                      "source": "${source}",
-                      "permissions": [
-                        { "key": "grounds.command.${source}", "label": "Use command", "description": "Allows using the command.", "supportedScopes": ["GLOBAL"] }
-                      ]
-                    }
-                    """
-                        .trimIndent()
-                        .encodeToByteArray()
-                )
-            } else {
-                null
-            }
+    private fun ManifestClassLoader(source: String): ClassLoader {
+        val root = directory.resolve(source)
+        val resource = root.resolve(PermissionManifest.RESOURCE_PATH)
+        Files.createDirectories(resource.parent)
+        Files.writeString(
+            resource,
+            """{"source":"$source","permissions":[{"key":"grounds.$source.use","label":"Use command","description":"Allows use.","supportedScopes":["GLOBAL"]}]}""",
+        )
+        return URLClassLoader(arrayOf(root.toUri().toURL()), null)
     }
 }

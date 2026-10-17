@@ -6,7 +6,10 @@ import gg.grounds.permissions.PermissionSnapshot
 import gg.grounds.permissions.PermissionSnapshotRefreshSweep
 import gg.grounds.permissions.Permissions
 import gg.grounds.permissions.SnapshotPermissions
+import gg.grounds.permissions.catalog.ManifestOrigin
+import gg.grounds.permissions.catalog.PermissionManifestCollector
 import gg.grounds.permissions.client.HttpPermissionRuntimeClient
+import gg.grounds.permissions.client.ManifestRegistrationScheduler
 import gg.grounds.permissions.client.PermissionRuntimeClient
 import gg.grounds.permissions.client.PermissionRuntimeStatus
 import gg.grounds.permissions.client.PermissionServiceConfig
@@ -44,6 +47,10 @@ internal fun interface PaperPermissionInvalidationStarter {
 }
 
 internal interface PaperPermissionPlatform {
+    fun permissionManifestOrigins(): List<ManifestOrigin>
+
+    fun registerPluginEnabled(handler: () -> Unit): AutoCloseable
+
     fun onlinePlayerIds(): Set<UUID>
 
     fun onlinePlayers(): Set<PaperPermissionPlayer>
@@ -91,6 +98,11 @@ internal constructor(
     private val platform: PaperPermissionPlatform,
     private val logger: Logger = LoggerFactory.getLogger(PaperPermissionsRuntime::class.java),
     private val clock: Clock = Clock.systemUTC(),
+    private val manifestSchedulerFactory:
+        (PermissionRuntimeClient) -> ManifestRegistrationScheduler =
+        {
+            ManifestRegistrationScheduler(it)
+        },
 ) : AutoCloseable {
     constructor(
         platform: PaperPermissionPlatform
@@ -103,13 +115,20 @@ internal constructor(
     private var loginRegistration: AutoCloseable? = null
     private var loginRollbackRegistration: AutoCloseable? = null
     private var refreshRegistration: AutoCloseable? = null
+    private var manifestScheduler: ManifestRegistrationScheduler? = null
+    private var pluginEnabledRegistration: AutoCloseable? = null
     private var published = false
     private var permissions: Permissions? = null
     private val activeSessions = mutableMapOf<UUID, PaperPermissionPlayer>()
 
     fun start() {
         stop()
-        invalidationLifecycle.replace { install() }
+        try {
+            invalidationLifecycle.replace { install() }
+        } catch (exception: Exception) {
+            stop()
+            throw exception
+        }
     }
 
     private fun install(): AutoCloseable? {
@@ -127,6 +146,24 @@ internal constructor(
             )
 
         platform.validateInjection()
+        val scheduler = manifestSchedulerFactory(client)
+        manifestScheduler = scheduler
+        fun registerManifests() {
+            val collection =
+                PermissionManifestCollector().collect(platform.permissionManifestOrigins())
+            collection.failures.forEach { failure ->
+                logger.warn(
+                    "Permission manifest skipped (originId={}, reason={})",
+                    failure.origin.id,
+                    failure.reason,
+                )
+            }
+            collection.manifests.forEach { collected ->
+                scheduler.register(collected.manifest, collected.sourceVersion, config.context)
+            }
+        }
+        pluginEnabledRegistration = platform.registerPluginEnabled(::registerManifests)
+        registerManifests()
         platform.publish(permissions)
         this.permissions = permissions
         published = true
@@ -166,6 +203,10 @@ internal constructor(
         }
 
     fun stop() {
+        pluginEnabledRegistration.closeQuietly()
+        pluginEnabledRegistration = null
+        manifestScheduler.closeQuietly()
+        manifestScheduler = null
         invalidationLifecycle.close()
         preLoginRegistration.closeQuietly()
         preLoginRegistration = null

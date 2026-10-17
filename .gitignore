@@ -46,3 +46,6 @@ nb-configuration.xml
 
 # Codex
 .codex
+
+# Python artifact-validator cache
+__pycache__/

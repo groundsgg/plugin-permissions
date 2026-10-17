@@ -7,23 +7,100 @@ import gg.grounds.permissions.PermissionGrantSource
 import gg.grounds.permissions.PermissionScope
 import gg.grounds.permissions.PermissionSnapshot
 import gg.grounds.permissions.Permissions
+import gg.grounds.permissions.catalog.ManifestOrigin
 import gg.grounds.permissions.catalog.PermissionManifest
+import gg.grounds.permissions.client.ManifestRegistrationScheduler
 import gg.grounds.permissions.client.PermissionManifestRegistrationResult
 import gg.grounds.permissions.client.PermissionRuntimeClient
 import gg.grounds.permissions.client.PermissionSnapshotContext
+import gg.grounds.permissions.client.RegistrationDelayScheduler
+import gg.grounds.permissions.client.ScheduledRegistration
 import gg.grounds.permissions.client.SnapshotFailureReason
 import gg.grounds.permissions.client.SnapshotUnavailableException
+import java.time.Duration
 import java.time.Instant
 import java.util.UUID
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.slf4j.helpers.NOPLogger
 
 class PaperPermissionsRuntimeTest {
+    @org.junit.jupiter.api.io.TempDir lateinit var manifestDirectory: java.nio.file.Path
+
+    @Test
+    fun `registers loaded and late plugins once and closes discovery on stop`() {
+        val platform = RecordingPlatform()
+        platform.origins += manifestOrigin("first-plugin")
+        val client = Client { snapshot(UUID.randomUUID()) }
+        val queue = ManifestQueue()
+        val runtime = runtime(platform, environment(), client, manifestQueue = queue)
+        runtime.start()
+        assertTrue(client.manifestSources.isEmpty())
+        queue.drain()
+        assertEquals(listOf("first-plugin"), client.manifestSources)
+        platform.origins += manifestOrigin("late-plugin")
+        requireNotNull(platform.pluginEnabled).invoke()
+        queue.drain()
+        requireNotNull(platform.pluginEnabled).invoke()
+        queue.drain()
+        assertEquals(listOf("first-plugin", "late-plugin"), client.manifestSources)
+        runtime.stop()
+        assertTrue(queue.closed)
+        assertTrue(platform.pluginEnabledClose.closed)
+    }
+
+    @Test
+    fun `startup failure closes manifest scheduler and discovery listener`() {
+        val platform = RecordingPlatform()
+        val queue = ManifestQueue()
+        val runtime =
+            runtime(
+                platform,
+                environment(),
+                manifestQueue = queue,
+                invalidationStarter = { _, _, _, _, _, _, _ ->
+                    error("invalidation startup failed")
+                },
+            )
+        assertThrows(IllegalStateException::class.java) { runtime.start() }
+        assertTrue(queue.closed)
+        assertTrue(platform.pluginEnabledClose.closed)
+        assertNull(platform.permissions)
+    }
+
+    @Test
+    fun `stop prevents pending manifest requests`() {
+        val platform = RecordingPlatform()
+        platform.origins += manifestOrigin("first-plugin")
+        val client = Client { snapshot(UUID.randomUUID()) }
+        val queue = ManifestQueue()
+        val runtime = runtime(platform, environment(), client, manifestQueue = queue)
+        runtime.start()
+        runtime.stop()
+        queue.drain()
+        assertTrue(client.manifestSources.isEmpty())
+    }
+
+    private fun manifestOrigin(source: String): ManifestOrigin {
+        val root = manifestDirectory.resolve(source)
+        val resource = root.resolve(PermissionManifest.RESOURCE_PATH)
+        java.nio.file.Files.createDirectories(resource.parent)
+        java.nio.file.Files.writeString(
+            resource,
+            """{"source":"$source","permissions":[{"key":"$source.use","label":"Use plugin","description":"Allows use.","supportedScopes":["GLOBAL"]}]}""",
+        )
+        return ManifestOrigin(
+            source,
+            "1.0.0",
+            java.net.URLClassLoader(arrayOf(root.toUri().toURL()), null),
+        )
+    }
+
     @Test
     fun `disabled configuration does not install a runtime`() {
         val platform = RecordingPlatform()
@@ -279,6 +356,7 @@ class PaperPermissionsRuntimeTest {
         platform: RecordingPlatform,
         environment: Map<String, String>,
         client: Client = Client { snapshot(UUID.randomUUID()) },
+        manifestQueue: ManifestQueue? = null,
         invalidationStarter:
             (
                 gg.grounds.permissions.invalidation.PermissionSnapshotInvalidationConfig?,
@@ -300,6 +378,10 @@ class PaperPermissionsRuntimeTest {
             platform,
             NOPLogger.NOP_LOGGER,
             java.time.Clock.fixed(NOW, java.time.ZoneOffset.UTC),
+            manifestSchedulerFactory = { runtimeClient ->
+                if (manifestQueue == null) ManifestRegistrationScheduler(runtimeClient)
+                else ManifestRegistrationScheduler(runtimeClient, manifestQueue)
+            },
         )
 
     private fun environment(nats: Boolean = false) = buildMap {
@@ -349,6 +431,15 @@ private class RecordingPlatform(
     private val onlinePlayers: Set<PaperPermissionPlayer> = emptySet(),
     private val restoreFailure: RuntimeException? = null,
 ) : PaperPermissionPlatform {
+    val origins = mutableListOf<ManifestOrigin>()
+    var pluginEnabled: (() -> Unit)? = null
+    val pluginEnabledClose = Closeable()
+
+    override fun permissionManifestOrigins(): List<ManifestOrigin> = origins.toList()
+
+    override fun registerPluginEnabled(handler: () -> Unit): AutoCloseable =
+        pluginEnabledClose.also { pluginEnabled = handler }
+
     var preLogin: ((UUID) -> PermissionLoginResult)? = null
     var login: ((PaperPermissionPlayer) -> PermissionLoginResult)? = null
     var loginRollback: ((PaperPermissionPlayer) -> Unit)? = null
@@ -430,11 +521,35 @@ private class Closeable : AutoCloseable {
 }
 
 private class Client(private val fetch: (UUID) -> PermissionSnapshot) : PermissionRuntimeClient {
+    val manifestSources = mutableListOf<String>()
+
     override fun fetchSnapshot(playerId: UUID, context: PermissionSnapshotContext) = fetch(playerId)
 
     override fun registerManifest(
         manifest: PermissionManifest,
         sourceVersion: String,
         context: PermissionSnapshotContext,
-    ) = PermissionManifestRegistrationResult.Accepted
+    ): PermissionManifestRegistrationResult {
+        manifestSources += manifest.source
+        return PermissionManifestRegistrationResult.Accepted
+    }
+}
+
+private class ManifestQueue : RegistrationDelayScheduler {
+    private val tasks = ArrayDeque<() -> Unit>()
+    var closed = false
+
+    override fun schedule(delay: Duration, task: () -> Unit): ScheduledRegistration {
+        tasks.add(task)
+        return ScheduledRegistration { tasks.remove(task) }
+    }
+
+    fun drain() {
+        while (tasks.isNotEmpty()) tasks.removeFirst().invoke()
+    }
+
+    override fun close() {
+        closed = true
+        tasks.clear()
+    }
 }

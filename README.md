@@ -41,3 +41,34 @@ backoff and jitter. Other client responses are terminal.
 | `GROUNDS_PERMISSION_SERVER_ID` | no | unset | Resolves server-scoped grants. |
 | `GROUNDS_PERMISSION_ENVIRONMENT` | no | unset | Adds the deployment environment to local scope resolution. |
 | `PERMISSIONS_REFRESH_INTERVAL_SECONDS` | no | `60` | How often the refresh sweep runs. |
+
+## Permission catalog resources
+
+Publish one JSON resource per manifest source at
+`META-INF/grounds/permissions/<source>.json` and list its full resource path in
+`META-INF/grounds/permissions.index`, one line per file. Each manifest contains
+`source`, the producing artifact's `sourceVersion`, and `permissions` entries with
+`key`, `label`, `description`, and `supportedScopes` (`GLOBAL`, `SERVER_TYPE`, `SERVER`).
+Expand `sourceVersion` from the artifact build version during `processResources`.
+
+Shaded hosts must append-merge `META-INF/grounds/permissions.index` and preserve
+all uniquely named JSON resources. The common collector enumerates every index,
+uses each manifest's embedded version, deduplicates identical records, and rejects
+conflicting declarations for a source. Minestom also scans its host classloader,
+so a manifest does not require an active ServiceLoader provider. Paper discovers
+loaded plugins and rescans when another plugin is enabled.
+
+The legacy `META-INF/grounds/permissions.json` remains supported only when its
+owning artifact and version can be identified. A shared legacy resource is never
+assigned to an arbitrary provider. Keep legacy resources while older runtimes
+remain deployed. New resources take precedence over legacy copies.
+
+Validate final artifacts with `python3 scripts/validate-permission-artifacts.py
+path/to/host.jar --require-source plugin-chat`. A manifest catalog entry does not
+grant a player access. Workload authorization must separately permit registration
+of each explicit manifest source; unrelated sources remain forbidden.
+
+For a collector integration check, set `PERMISSION_TEST_EXPECTATIONS` to a JSON
+file mapping absolute host JAR paths to expected source/version maps, then run
+`:common:test --tests '*PackagedPermissionManifestTest'`. Supply expectations
+from the selected release dependencies; filenames do not determine ownership.

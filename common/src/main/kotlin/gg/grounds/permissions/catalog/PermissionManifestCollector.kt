@@ -1,8 +1,19 @@
 package gg.grounds.permissions.catalog
 
-data class ManifestOrigin(val id: String, val version: String, val classLoader: ClassLoader)
+import java.net.URL
 
-data class CollectedPermissionManifest(val origin: ManifestOrigin, val manifest: PermissionManifest)
+data class ManifestOrigin(
+    val id: String,
+    val version: String,
+    val classLoader: ClassLoader,
+    val artifactLocation: URL? = null,
+)
+
+data class CollectedPermissionManifest(
+    val origin: ManifestOrigin,
+    val manifest: PermissionManifest,
+    val sourceVersion: String = manifest.sourceVersion ?: origin.version,
+)
 
 data class PermissionManifestCollectionFailure(val origin: ManifestOrigin, val reason: String)
 
@@ -16,19 +27,53 @@ class PermissionManifestCollector {
         val manifests = mutableListOf<CollectedPermissionManifest>()
         val failures = mutableListOf<PermissionManifestCollectionFailure>()
 
-        origins.forEach { origin ->
-            try {
-                val manifest = PermissionManifest.loadResource(origin.classLoader) ?: return@forEach
-                manifests += CollectedPermissionManifest(origin, manifest)
-            } catch (exception: IllegalArgumentException) {
-                failures +=
-                    PermissionManifestCollectionFailure(
-                        origin = origin,
-                        reason = exception.message ?: exception::class.java.simpleName,
-                    )
+        origins
+            .groupBy { it.classLoader }
+            .values
+            .forEach { loaderOrigins ->
+                val origin = loaderOrigins.first()
+                fun failed(reason: String) {
+                    failures += PermissionManifestCollectionFailure(origin, reason)
+                }
+                val indexed =
+                    IndexedPermissionManifestResources.read(origin.classLoader, ::failed).orEmpty()
+                manifests += indexed.map { CollectedPermissionManifest(origin, it) }
+                val coveredSources = indexed.map { it.source }.toSet()
+                loaderOrigins.forEach { legacyOrigin ->
+                    val legacy =
+                        LegacyPermissionManifestResources.read(
+                            legacyOrigin,
+                            allowIsolatedLoader = loaderOrigins.size == 1,
+                            coveredSources = coveredSources,
+                            failed = { reason ->
+                                failures +=
+                                    PermissionManifestCollectionFailure(legacyOrigin, reason)
+                            },
+                        )
+                    if (legacy != null) {
+                        manifests +=
+                            CollectedPermissionManifest(legacyOrigin, legacy, legacyOrigin.version)
+                    }
+                }
             }
-        }
 
-        return PermissionManifestCollection(manifests = manifests, failures = failures)
+        val unique =
+            manifests
+                .groupBy { it.manifest.source }
+                .flatMap { (source, entries) ->
+                    val declarations =
+                        entries.distinctBy { it.manifest.copy(sourceVersion = it.sourceVersion) }
+                    if (declarations.size > 1) {
+                        failures +=
+                            PermissionManifestCollectionFailure(
+                                entries.first().origin,
+                                "Conflicting permission manifests for source=$source",
+                            )
+                        emptyList()
+                    } else {
+                        listOf(entries.first())
+                    }
+                }
+        return PermissionManifestCollection(manifests = unique, failures = failures)
     }
 }
