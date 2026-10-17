@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/groundsgg/plugin-permissions/compare/v1.3.2...v1.4.0) (2026-10-17)
+
+
+### Features
+
+* **catalog:** discover versioned permission manifests on every platform ([#50](https://github.com/groundsgg/plugin-permissions/issues/50)) ([eaaac8e](https://github.com/groundsgg/plugin-permissions/commit/eaaac8e71d4eb3a797bccaf97d11e9e01b70d7e2))
+
 ## [1.3.2](https://github.com/groundsgg/plugin-permissions/compare/v1.3.1...v1.3.2) (2026-10-17)
 
 
