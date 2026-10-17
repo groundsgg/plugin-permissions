@@ -81,6 +81,7 @@ class MinestomPermissionSnapshotInvalidationsTest {
         val client = MinestomInvalidationRuntimeClient(snapshot(policyVersion = 2))
         val executor = MinestomQueuedExecutorService()
         val subscription = MinestomRecordingSubscription()
+        val invalidated = mutableListOf<UUID>()
         val invalidations =
             MinestomPermissionSnapshotInvalidations.start(
                 config = config,
@@ -94,6 +95,7 @@ class MinestomPermissionSnapshotInvalidationsTest {
                     subscription
                 },
                 executorFactory = { executor },
+                onInvalidated = { invalidated += it },
             )
 
         requireNotNull(invalidations)
@@ -101,6 +103,8 @@ class MinestomPermissionSnapshotInvalidationsTest {
 
         assertEquals(0, executor.queuedTaskCount)
         assertTrue(client.playerIds.isEmpty())
+        // A player who has not joined yet may still have a prefetched snapshot to drop.
+        assertEquals(listOf(playerId), invalidated)
         invalidations.close()
     }
 
