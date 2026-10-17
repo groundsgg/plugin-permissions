@@ -60,8 +60,16 @@ internal class MinestomRankNameTags(private val permissions: Permissions) : Auto
                     bedrockViewer = editions.isBedrock(event.player.uuid),
                 )
             if (mapped !== packet) {
-                event.isCancelled = true
-                event.player.sendPacket(mapped)
+                // Socket connections fire this event while draining their outgoing queue.
+                // Cancelling ADD_PLAYER and resending moves the profile behind the queued
+                // entity spawn: the client then drops that player's entity. Keep the original
+                // profile in place and enqueue only the viewer-specific display decoration.
+                event.player.sendPacket(
+                    PlayerInfoUpdatePacket(
+                        PlayerInfoUpdatePacket.Action.UPDATE_DISPLAY_NAME,
+                        mapped.entries(),
+                    )
+                )
             }
         }
         MinecraftServer.getGlobalEventHandler().addChild(node)
