@@ -12,6 +12,7 @@ import net.minestom.server.color.TeamColor
 import net.minestom.server.entity.Player
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.player.PlayerPacketOutEvent
+import net.minestom.server.network.packet.server.play.PlayerInfoUpdatePacket
 import net.minestom.server.network.packet.server.play.TeamsPacket
 import net.minestom.server.scoreboard.Team
 import net.minestom.server.timer.TaskSchedule
@@ -37,6 +38,28 @@ internal class MinestomRankNameTags(private val permissions: Permissions) : Auto
                     if (component == prefix.first) prefix.second else component
                 }
             if (mapped != packet) {
+                event.isCancelled = true
+                event.player.sendPacket(mapped)
+            }
+        }
+        node.addListener(PlayerPacketOutEvent::class.java) { event ->
+            if (event.isCancelled) return@addListener
+            val packet = event.packet as? PlayerInfoUpdatePacket ?: return@addListener
+            val mapped =
+                InitialRankTabEntries.format(
+                    packet,
+                    roleOf = { id ->
+                        permissions
+                            .snapshot(id)
+                            ?.roleMetadata
+                            ?.minWithOrNull(
+                                compareBy<RoleMetadata> { it.sortOrder }.thenBy { it.key }
+                            )
+                    },
+                    isBedrock = editions::isBedrock,
+                    bedrockViewer = editions.isBedrock(event.player.uuid),
+                )
+            if (mapped !== packet) {
                 event.isCancelled = true
                 event.player.sendPacket(mapped)
             }
