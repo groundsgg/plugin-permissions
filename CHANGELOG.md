@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.4.2](https://github.com/groundsgg/plugin-permissions/compare/v1.4.1...v1.4.2) (2026-10-17)
+
+
+### Bug Fixes
+
+* **badges:** distinguish MOD from DEV with muted petrol ([#57](https://github.com/groundsgg/plugin-permissions/issues/57)) ([0cc4c36](https://github.com/groundsgg/plugin-permissions/commit/0cc4c36f4cd9ccdbd90dcf3eba45f360b2c2fa20))
+* **docker:** preserve release versions in permission manifests ([#55](https://github.com/groundsgg/plugin-permissions/issues/55)) ([d087a49](https://github.com/groundsgg/plugin-permissions/commit/d087a49ca1cc4aa90679b0feb967a3da11cfa957))
+* **minestom:** preserve player profiles before entity spawn ([#58](https://github.com/groundsgg/plugin-permissions/issues/58)) ([1d18c2f](https://github.com/groundsgg/plugin-permissions/commit/1d18c2fcdcb4d5deb59f2b9270e40ab323e71080))
+
 ## [1.4.1](https://github.com/groundsgg/plugin-permissions/compare/v1.4.0...v1.4.1) (2026-10-17)
 
 
