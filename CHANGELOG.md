@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.1](https://github.com/groundsgg/plugin-permissions/compare/v1.1.0...v1.1.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* **build:** resolve dependencies through the runner mirror in Docker builds ([#38](https://github.com/groundsgg/plugin-permissions/issues/38)) ([30ebb13](https://github.com/groundsgg/plugin-permissions/commit/30ebb13fbf9a1b2d65acced37e26912f8b843018))
+* **chat:** use the shared system message layout ([#40](https://github.com/groundsgg/plugin-permissions/issues/40)) ([2df6a06](https://github.com/groundsgg/plugin-permissions/commit/2df6a064c9b8f7878ddfcd127638ff6366c45710))
+
 ## [1.1.0](https://github.com/groundsgg/plugin-permissions/compare/v1.0.0...v1.1.0) (2026-10-14)
 
 
