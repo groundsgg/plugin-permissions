@@ -364,6 +364,36 @@ class HttpPermissionRuntimeClientTest {
         assertEquals(null, failure.statusCode)
     }
 
+    @Test
+    fun `display fetch never seeds authorization outage fallback`() {
+        val cache = SnapshotCache()
+        val client = client(cache)
+        responder = { respond(it, 200, SNAPSHOT_JSON) }
+        assertEquals(
+            expectedSnapshot(),
+            client.fetchDisplaySnapshot(playerId, PermissionSnapshotContext()),
+        )
+        assertEquals(null, cache.valid(playerId, TEST_CLOCK.instant()))
+        responder = { respond(it, 503) }
+        assertThrows(SnapshotUnavailableException::class.java) {
+            client.fetchSnapshot(playerId, PermissionSnapshotContext())
+        }
+    }
+
+    @Test
+    fun `display fetch never reads or removes authorization fallback`() {
+        val cache = SnapshotCache()
+        cache.put(expectedSnapshot(), TEST_CLOCK.instant())
+        val client = client(cache)
+        for (code in listOf(503, 404)) {
+            responder = { respond(it, code) }
+            assertThrows(SnapshotUnavailableException::class.java) {
+                client.fetchDisplaySnapshot(playerId, PermissionSnapshotContext())
+            }
+            assertEquals(expectedSnapshot(), cache.valid(playerId, TEST_CLOCK.instant()))
+        }
+    }
+
     private fun client(
         cache: SnapshotCache = SnapshotCache(),
         requestTimeout: Duration = Duration.ofSeconds(2),

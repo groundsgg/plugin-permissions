@@ -33,6 +33,20 @@ class HttpPermissionRuntimeClient(
         playerId: UUID,
         context: PermissionSnapshotContext,
     ): PermissionSnapshot {
+        return fetch(playerId, context, useCache = true)
+    }
+
+    /** Display lookups must never populate, read, or invalidate authorization fallback. */
+    fun fetchDisplaySnapshot(
+        playerId: UUID,
+        context: PermissionSnapshotContext,
+    ): PermissionSnapshot = fetch(playerId, context, useCache = false)
+
+    private fun fetch(
+        playerId: UUID,
+        context: PermissionSnapshotContext,
+        useCache: Boolean,
+    ): PermissionSnapshot {
         val requestId = requestIdSupplier()
         val request =
             HttpRequest.newBuilder(snapshotUri(playerId, context))
@@ -51,6 +65,7 @@ class HttpPermissionRuntimeClient(
                     reason = SnapshotFailureReason.UNAVAILABLE,
                     requestId = requestId,
                     cause = exception,
+                    useCache = useCache,
                 )
             } catch (exception: InterruptedException) {
                 Thread.currentThread().interrupt()
@@ -59,12 +74,13 @@ class HttpPermissionRuntimeClient(
                     reason = SnapshotFailureReason.UNAVAILABLE,
                     requestId = requestId,
                     cause = exception,
+                    useCache = useCache,
                 )
             }
 
         val responseRequestId = response.headers().firstValue("X-Request-ID").orElse(requestId)
         return when (response.statusCode()) {
-            200 -> decodeOrFallback(playerId, response.body(), responseRequestId)
+            200 -> decodeOrFallback(playerId, response.body(), responseRequestId, useCache)
             401 ->
                 failClosed(
                     SnapshotFailureReason.UNAUTHENTICATED,
@@ -78,7 +94,7 @@ class HttpPermissionRuntimeClient(
                     responseRequestId,
                 )
             404 -> {
-                cache.remove(playerId)
+                if (useCache) cache.remove(playerId)
                 failClosed(
                     SnapshotFailureReason.NOT_FOUND,
                     response.statusCode(),
@@ -91,6 +107,7 @@ class HttpPermissionRuntimeClient(
                     SnapshotFailureReason.UNAVAILABLE,
                     response.statusCode(),
                     responseRequestId,
+                    useCache = useCache,
                 )
             in 500..599 ->
                 fallbackOrThrow(
@@ -98,6 +115,7 @@ class HttpPermissionRuntimeClient(
                     SnapshotFailureReason.UNAVAILABLE,
                     response.statusCode(),
                     responseRequestId,
+                    useCache = useCache,
                 )
             else ->
                 failClosed(
@@ -186,13 +204,14 @@ class HttpPermissionRuntimeClient(
         playerId: UUID,
         responseBody: String,
         requestId: String,
+        useCache: Boolean,
     ): PermissionSnapshot =
         try {
             mapper
                 .readValue(responseBody, RuntimePermissionSnapshotDto::class.java)
                 .toDomain(playerId)
                 .also {
-                    cache.put(it, clock.instant())
+                    if (useCache) cache.put(it, clock.instant())
                     status.recordSnapshotSuccess()
                 }
         } catch (exception: Exception) {
@@ -202,6 +221,7 @@ class HttpPermissionRuntimeClient(
                 statusCode = 200,
                 requestId = requestId,
                 cause = exception,
+                useCache = useCache,
             )
         }
 
@@ -211,9 +231,10 @@ class HttpPermissionRuntimeClient(
         statusCode: Int? = null,
         requestId: String? = null,
         cause: Throwable? = null,
+        useCache: Boolean = true,
     ): PermissionSnapshot {
         status.recordSnapshotFailure()
-        cache.valid(playerId, clock.instant())?.let {
+        (if (useCache) cache.valid(playerId, clock.instant()) else null)?.let {
             status.recordValidCacheFallback()
             return it
         }

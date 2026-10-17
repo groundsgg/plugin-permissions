@@ -88,6 +88,7 @@ internal constructor(
     private var manifestScheduler: ManifestRegistrationScheduler? = null
     private var commandMeta: CommandMeta? = null
     private var refreshTask: ScheduledTask? = null
+    private var roleLookupExecutor: java.util.concurrent.ExecutorService? = null
     private var permissions: Permissions? = null
     private val snapshotInvalidationLifecycle =
         PermissionSnapshotInvalidationLifecycle(runtime = "velocity", logger = logger)
@@ -186,7 +187,7 @@ internal constructor(
         // nothing could read them without a permissions client of its own -- so a rank was
         // invisible in chat, in the tab list and in /online. Registering rather than exposing a
         // static keeps the dependency one-way: consumers ask the registry, not this plugin.
-        publishRoleQuery(snapshots)
+        publishRoleQuery(snapshots, config.service, config.context)
         loadCommandPermissions()?.let { commandPermissions ->
             val router =
                 PermissionCommandRouter(
@@ -269,6 +270,8 @@ internal constructor(
         snapshotInvalidationLifecycle.close()
         commandMeta?.let(proxy.commandManager::unregister)
         commandMeta = null
+        roleLookupExecutor?.shutdownNow()
+        roleLookupExecutor = null
         refreshTask?.cancel()
         refreshTask = null
         manifestScheduler?.close()
@@ -287,9 +290,39 @@ internal constructor(
      * permission checks are the job, and letting a NoClassDefFoundError out of here would take the
      * command registration below it down as well.
      */
-    private fun publishRoleQuery(snapshots: InMemoryPermissionSnapshots) {
+    private fun publishRoleQuery(
+        snapshots: InMemoryPermissionSnapshots,
+        service: PermissionServiceConfig,
+        context: PermissionSnapshotContext,
+    ) {
         withProxyApi("register") {
-            ProxyServiceRegistry.register(PlayerRoleQuery::class.java, SnapshotRoleQuery(snapshots))
+            val executor =
+                java.util.concurrent.ThreadPoolExecutor(
+                    1,
+                    2,
+                    30,
+                    TimeUnit.SECONDS,
+                    java.util.concurrent.ArrayBlockingQueue(128),
+                    java.util.concurrent.ThreadFactory { task ->
+                        Thread(task, "grounds-tab-role-lookup").apply { isDaemon = true }
+                    },
+                )
+            roleLookupExecutor = executor
+            val displayClient = HttpPermissionRuntimeClient(config = service)
+            val remote =
+                RemotePlayerRoles(
+                    fetchSnapshot = { displayClient.fetchDisplaySnapshot(it, context) },
+                    executor = executor,
+                    onFailure = { id ->
+                        logger.debug("Remote display role unavailable (playerId={})", id)
+                    },
+                )
+            ProxyServiceRegistry.register(
+                PlayerRoleQuery::class.java,
+                SnapshotRoleQuery(snapshots, remote::roleMetadataOf) {
+                    proxy.getPlayer(it).isPresent
+                },
+            )
         }
     }
 
