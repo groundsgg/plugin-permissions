@@ -12,6 +12,9 @@ import net.kyori.adventure.text.format.TextColor
 import net.minestom.server.MinecraftServer
 import net.minestom.server.color.TeamColor
 import net.minestom.server.entity.Player
+import net.minestom.server.event.EventNode
+import net.minestom.server.event.player.PlayerPacketOutEvent
+import net.minestom.server.network.packet.server.play.TeamsPacket
 import net.minestom.server.scoreboard.Team
 import net.minestom.server.timer.TaskSchedule
 
@@ -21,6 +24,33 @@ internal class MinestomRankNameTags(private val permissions: Permissions) : Auto
 
     private val entries = mutableMapOf<UUID, Entry>()
     private val editions = ProxyPlayerEditions()
+    private val viewerEditions = mutableMapOf<UUID, Boolean>()
+    private val node = EventNode.all("grounds-rank-nameplates")
+
+    init {
+        node.addListener(PlayerPacketOutEvent::class.java) { event ->
+            val packet = event.packet as? TeamsPacket ?: return@addListener
+            if (!packet.teamName().startsWith("grank") || !editions.isBedrock(event.player.uuid))
+                return@addListener
+            val mapped =
+                packet.copyWithOperator { component ->
+                    component.replaceText { replacement ->
+                        replacement
+                            .matchLiteral("\uE004")
+                            .replacement(
+                                Component.text("\uE500", NamedTextColor.WHITE)
+                                    .font(Key.key("minecraft", "default"))
+                            )
+                    }
+                }
+            if (mapped != packet) {
+                event.isCancelled = true
+                event.player.sendPacket(mapped)
+            }
+        }
+        MinecraftServer.getGlobalEventHandler().addChild(node)
+    }
+
     private val task =
         MinecraftServer.getSchedulerManager()
             .scheduleTask(::refresh, TaskSchedule.nextTick(), TaskSchedule.seconds(1))
@@ -64,6 +94,23 @@ internal class MinestomRankNameTags(private val permissions: Permissions) : Auto
                 if (player.team == null) player.team = existing.team
             }
         }
+        viewerEditions.keys.retainAll(players.keys)
+        players.values.forEach { viewer ->
+            val bedrock = editions.isBedrock(viewer.uuid)
+            if (viewerEditions.put(viewer.uuid, bedrock) != bedrock) {
+                entries.values.forEach { entry ->
+                    val creation =
+                        entry.team.createTeamsCreationPacket().action()
+                            as TeamsPacket.CreateTeamAction
+                    viewer.sendPacket(
+                        TeamsPacket(
+                            entry.team.teamName,
+                            TeamsPacket.UpdateTeamAction(creation.settings()),
+                        )
+                    )
+                }
+            }
+        }
     }
 
     private fun prefix(role: RoleMetadata, bedrock: Boolean): Component {
@@ -90,6 +137,7 @@ internal class MinestomRankNameTags(private val permissions: Permissions) : Auto
     @Synchronized
     override fun close() {
         task.cancel()
+        MinecraftServer.getGlobalEventHandler().removeChild(node)
         editions.close()
         val players = MinecraftServer.getConnectionManager().onlinePlayers.associateBy { it.uuid }
         entries.keys.toList().forEach { remove(it, players[it]) }
