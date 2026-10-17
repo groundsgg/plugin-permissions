@@ -12,7 +12,7 @@ import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.TextColor
 import net.minestom.server.network.packet.server.play.PlayerInfoUpdatePacket
 
-/** Format the ADD_PLAYER packet before its first write, using snapshots loaded before login. */
+/** Derive rank decoration from an ADD_PLAYER packet, using snapshots loaded before login. */
 internal object InitialRankTabEntries {
     fun format(
         packet: PlayerInfoUpdatePacket,
