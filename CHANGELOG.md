@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.3.0](https://github.com/groundsgg/plugin-permissions/compare/v1.2.0...v1.3.0) (2026-10-17)
+
+
+### Features
+
+* **minestom:** show role nameplates and Bedrock edition logo ([#46](https://github.com/groundsgg/plugin-permissions/issues/46)) ([50ac066](https://github.com/groundsgg/plugin-permissions/commit/50ac066b98db6220862bc0ab61fd54011142a1eb))
+
+
+### Bug Fixes
+
+* **tab:** resolve rank metadata across proxy connections ([#44](https://github.com/groundsgg/plugin-permissions/issues/44)) ([09647ce](https://github.com/groundsgg/plugin-permissions/commit/09647ceb8c30ac7e4ad5ddf19de6bea3d76043c7))
+
 ## [1.2.0](https://github.com/groundsgg/plugin-permissions/compare/v1.1.1...v1.2.0) (2026-10-17)
 
 
