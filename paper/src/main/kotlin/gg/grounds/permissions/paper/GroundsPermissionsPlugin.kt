@@ -1,6 +1,7 @@
 package gg.grounds.permissions.paper
 
 import gg.grounds.permissions.Permissions
+import gg.grounds.permissions.catalog.ManifestOrigin
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import net.kyori.adventure.text.Component
@@ -12,6 +13,7 @@ import org.bukkit.event.Listener
 import org.bukkit.event.player.AsyncPlayerPreLoginEvent
 import org.bukkit.event.player.PlayerLoginEvent
 import org.bukkit.event.player.PlayerQuitEvent
+import org.bukkit.event.server.PluginEnableEvent
 import org.bukkit.plugin.ServicePriority
 import org.bukkit.plugin.java.JavaPlugin
 
@@ -32,6 +34,19 @@ internal class BukkitPaperPermissionPlatform(
     private val plugin: JavaPlugin,
     private val injector: PaperPermissibleInjector = PaperPermissibleInjector(),
 ) : PaperPermissionPlatform {
+    override fun permissionManifestOrigins(): List<ManifestOrigin> =
+        discoverPaperPermissionManifestOrigins(plugin.server.pluginManager.plugins.toList())
+
+    override fun registerPluginEnabled(handler: () -> Unit): AutoCloseable =
+        registerListener(
+            object : Listener {
+                @EventHandler(priority = EventPriority.MONITOR)
+                fun onPluginEnabled(event: PluginEnableEvent) {
+                    handler()
+                }
+            }
+        )
+
     private var servicePublished = false
     private val onlinePlayerIds =
         ConcurrentHashMap.newKeySet<UUID>().also { ids ->

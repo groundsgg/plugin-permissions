@@ -6,7 +6,11 @@ import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.json.JsonMapper
 import tools.jackson.module.kotlin.KotlinModule
 
-data class PermissionManifest(val source: String, val permissions: List<PermissionManifestEntry>) {
+data class PermissionManifest(
+    val source: String,
+    val permissions: List<PermissionManifestEntry>,
+    val sourceVersion: String? = null,
+) {
     init {
         require(source.isNotBlank()) { "Permission manifest source must not be blank." }
         require(permissions.isNotEmpty()) {

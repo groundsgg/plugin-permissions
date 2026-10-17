@@ -13,5 +13,6 @@ fun discoverPermissionManifestOrigins(
             id = container.description.id,
             version = container.description.version.orElse("unknown"),
             classLoader = classLoader,
+            artifactLocation = instance.javaClass.protectionDomain?.codeSource?.location,
         )
     }

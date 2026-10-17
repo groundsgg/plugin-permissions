@@ -16,3 +16,11 @@ dependencies {
     testImplementation("gg.grounds:plugin-proxy-api:2.6.0")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
+
+// Keep the publishing artifact version with its catalog when bundled into a host JAR.
+tasks.named<org.gradle.language.jvm.tasks.ProcessResources>("processResources") {
+    inputs.property("permissionManifestVersion", project.version.toString())
+    filesMatching("META-INF/grounds/permissions/*.json") {
+        expand("version" to project.version.toString())
+    }
+}

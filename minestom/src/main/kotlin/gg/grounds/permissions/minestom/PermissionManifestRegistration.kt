@@ -6,7 +6,8 @@ import gg.grounds.permissions.catalog.PermissionManifestCollector
 import gg.grounds.runtime.ActiveGroundsModuleProvider
 
 fun collectActivePermissionManifests(
-    activeProviders: Iterable<ActiveGroundsModuleProvider>
+    activeProviders: Iterable<ActiveGroundsModuleProvider>,
+    hostClassLoader: ClassLoader? = null,
 ): PermissionManifestCollection =
     PermissionManifestCollector()
         .collect(
@@ -16,5 +17,5 @@ fun collectActivePermissionManifests(
                     version = provider.version,
                     classLoader = provider.classLoader,
                 )
-            }
+            } + listOfNotNull(hostClassLoader?.let { ManifestOrigin("host", "unknown", it) })
         )
