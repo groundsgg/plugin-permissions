@@ -54,6 +54,8 @@ internal interface MinestomPermissionRuntimePlatform {
     fun addEventNode(node: EventNode<Event>)
 
     fun removeEventNode(node: EventNode<Event>)
+
+    fun startNameTags(permissions: Permissions): AutoCloseable? = null
 }
 
 class GroundsPermissionsModule
@@ -90,6 +92,7 @@ internal constructor(
     private var prefetchExecutor: ExecutorService? = null
     private var prefetches: PermissionSnapshotPrefetches? = null
     private var eventNode: EventNode<Event>? = null
+    private var nameTags: AutoCloseable? = null
     private val snapshotInvalidationLifecycle =
         PermissionSnapshotInvalidationLifecycle(runtime = "minestom", logger = logger)
 
@@ -184,6 +187,7 @@ internal constructor(
         )
 
         ctx.services.register<Permissions>(permissions)
+        nameTags = runtimePlatform.startNameTags(permissions)
         ctx.services.registerPlayerPrefetch(MODULE_ID, prefetches)
 
         val node = ctx.eventNode("grounds-permissions")
@@ -223,6 +227,8 @@ internal constructor(
     }
 
     override fun stop() {
+        nameTags?.close()
+        nameTags = null
         snapshotInvalidationLifecycle.close()
         eventNode?.let(runtimePlatform::removeEventNode)
         eventNode = null
@@ -298,6 +304,9 @@ internal constructor(
                 override fun removeEventNode(node: EventNode<Event>) {
                     MinecraftServer.getGlobalEventHandler().removeChild(node)
                 }
+
+                override fun startNameTags(permissions: Permissions): AutoCloseable =
+                    MinestomRankNameTags(permissions)
             }
     }
 }
