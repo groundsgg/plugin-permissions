@@ -36,6 +36,7 @@ COPY paper/ paper/
 # `build` task also produces a thin plugin JAR and a sources JAR; the fat one
 # is the one Velocity can actually load.
 RUN --mount=type=secret,id=github_token,required=true \
+    --mount=type=secret,id=gradle_init,target=/root/.gradle/init.d/grounds-maven-mirror.init.gradle.kts,required=false \
     /bin/sh -euc '\
       : "${GITHUB_USER:?GITHUB_USER build arg is required}"; \
       token="$(cat /run/secrets/github_token)"; \
