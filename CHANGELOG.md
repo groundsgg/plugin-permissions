@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.2](https://github.com/groundsgg/plugin-permissions/compare/v1.3.1...v1.3.2) (2026-10-17)
+
+
+### Bug Fixes
+
+* **tab:** format rank badges before the first player entry ([#49](https://github.com/groundsgg/plugin-permissions/issues/49)) ([802ab5c](https://github.com/groundsgg/plugin-permissions/commit/802ab5c291a8b9d02f3ca617809f1c37f1f918bd))
+
 ## [1.3.1](https://github.com/groundsgg/plugin-permissions/compare/v1.3.0...v1.3.1) (2026-10-17)
 
 
