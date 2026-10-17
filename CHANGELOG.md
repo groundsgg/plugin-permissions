@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.1](https://github.com/groundsgg/plugin-permissions/compare/v1.4.0...v1.4.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* **badges:** add the moss-green MOD variant ([#53](https://github.com/groundsgg/plugin-permissions/issues/53)) ([9b611bb](https://github.com/groundsgg/plugin-permissions/commit/9b611bb1f7bd032c8b9ef55809c92b1d9bb20081))
+
 ## [1.4.0](https://github.com/groundsgg/plugin-permissions/compare/v1.3.2...v1.4.0) (2026-10-17)
 
 
