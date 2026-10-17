@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0](https://github.com/groundsgg/plugin-permissions/compare/v1.1.1...v1.2.0) (2026-10-17)
+
+
+### Features
+
+* **minestom:** prefetch permission snapshots for pushed match rosters ([#42](https://github.com/groundsgg/plugin-permissions/issues/42)) ([f2bad43](https://github.com/groundsgg/plugin-permissions/commit/f2bad43ff429eda2a64c5fe90e23c76537ec435e))
+
+
+### Bug Fixes
+
+* **chat:** align context and message-level colors ([#41](https://github.com/groundsgg/plugin-permissions/issues/41)) ([4b87474](https://github.com/groundsgg/plugin-permissions/commit/4b874740bd86d0a6d81a2b507218b47386d45354))
+
 ## [1.1.1](https://github.com/groundsgg/plugin-permissions/compare/v1.1.0...v1.1.1) (2026-10-17)
 
 
