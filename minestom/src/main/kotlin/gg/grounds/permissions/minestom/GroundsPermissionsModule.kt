@@ -17,8 +17,10 @@ import gg.grounds.permissions.invalidation.PermissionSnapshotInvalidationConfig
 import gg.grounds.permissions.invalidation.PermissionSnapshotInvalidationLifecycle
 import gg.grounds.runtime.GroundsModule
 import gg.grounds.runtime.GroundsServerContext
+import gg.grounds.runtime.registerPlayerPrefetch
 import java.time.Clock
 import java.util.UUID
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
@@ -42,6 +44,7 @@ internal fun interface MinestomPermissionSnapshotInvalidationStarter {
         runtimeClient: PermissionRuntimeClient,
         context: PermissionSnapshotContext,
         logger: Logger,
+        onInvalidated: (UUID) -> Unit,
     ): AutoCloseable?
 }
 
@@ -84,6 +87,8 @@ internal constructor(
     private val snapshots = InMemoryPermissionSnapshots()
     private var manifestScheduler: ManifestRegistrationScheduler? = null
     private var refreshExecutor: ScheduledExecutorService? = null
+    private var prefetchExecutor: ExecutorService? = null
+    private var prefetches: PermissionSnapshotPrefetches? = null
     private var eventNode: EventNode<Event>? = null
     private val snapshotInvalidationLifecycle =
         PermissionSnapshotInvalidationLifecycle(runtime = "minestom", logger = logger)
@@ -118,12 +123,23 @@ internal constructor(
                 defaultScope = config.context.toCheckScope(),
                 clock = clock,
             )
+        val prefetchExecutor =
+            Executors.newFixedThreadPool(MAX_CONCURRENT_PREFETCHES) { runnable ->
+                Thread(runnable, "grounds-permissions-prefetch").apply { isDaemon = true }
+            }
+        val prefetches =
+            PermissionSnapshotPrefetches(
+                fetch = { playerId -> runtimeClient.fetchSnapshot(playerId, config.context) },
+                executor = prefetchExecutor,
+                onlinePlayerIds = runtimePlatform::onlinePlayerIds,
+                clock = clock,
+                logger = logger,
+            )
         val loader =
             MinestomPermissionSnapshotLoader(
                 logger = logger,
                 snapshots = snapshots,
-                client = runtimeClient,
-                context = config.context,
+                fetchForLogin = prefetches::fetchForLogin,
             )
         val refreshSweep =
             PermissionSnapshotRefreshSweep(
@@ -168,6 +184,7 @@ internal constructor(
         )
 
         ctx.services.register<Permissions>(permissions)
+        ctx.services.registerPlayerPrefetch(MODULE_ID, prefetches)
 
         val node = ctx.eventNode("grounds-permissions")
         PermissionPlayerListener(loader).register(node)
@@ -175,6 +192,8 @@ internal constructor(
         eventNode = node
         this.manifestScheduler = manifestScheduler
         this.refreshExecutor = refreshExecutor
+        this.prefetchExecutor = prefetchExecutor
+        this.prefetches = prefetches
 
         ctx.onShutdown { stop() }
 
@@ -191,6 +210,7 @@ internal constructor(
                 runtimeClient = runtimeClient,
                 context = config.context,
                 logger = logger,
+                onInvalidated = prefetches::invalidate,
             )
 
         logger.info(
@@ -210,6 +230,10 @@ internal constructor(
         manifestScheduler = null
         refreshExecutor?.shutdownNow()
         refreshExecutor = null
+        prefetchExecutor?.shutdownNow()
+        prefetchExecutor = null
+        prefetches?.clear()
+        prefetches = null
     }
 
     private fun registerActivePermissionManifests(
@@ -238,6 +262,9 @@ internal constructor(
     companion object {
         const val MODULE_ID: String = "grounds.permissions"
 
+        /** A full roster is fetched four at a time, not all at once. */
+        private const val MAX_CONCURRENT_PREFETCHES = 4
+
         private val DEFAULT_RUNTIME_CLIENT_FACTORY =
             MinestomPermissionRuntimeClientFactory { config, status ->
                 HttpPermissionRuntimeClient(config = config, status = status)
@@ -248,13 +275,15 @@ internal constructor(
                 snapshots,
                 runtimeClient,
                 context,
-                logger ->
+                logger,
+                onInvalidated ->
                 MinestomPermissionSnapshotInvalidations.start(
                     config = config,
                     snapshots = snapshots,
                     runtimeClient = runtimeClient,
                     context = context,
                     logger = logger,
+                    onInvalidated = onInvalidated,
                 )
             }
         private val DEFAULT_RUNTIME_PLATFORM =

@@ -8,20 +8,32 @@ import gg.grounds.permissions.client.SnapshotUnavailableException
 import java.util.UUID
 import org.slf4j.Logger
 
-class MinestomPermissionSnapshotLoader(
+class MinestomPermissionSnapshotLoader
+internal constructor(
     private val logger: Logger,
     private val snapshots: InMemoryPermissionSnapshots,
-    private val client: PermissionRuntimeClient,
-    private val context: PermissionSnapshotContext,
+    private val fetchForLogin: (UUID) -> LoginSnapshot,
 ) {
+    constructor(
+        logger: Logger,
+        snapshots: InMemoryPermissionSnapshots,
+        client: PermissionRuntimeClient,
+        context: PermissionSnapshotContext,
+    ) : this(
+        logger,
+        snapshots,
+        { playerId -> LoginSnapshot(client.fetchSnapshot(playerId, context), PrefetchOutcome.NONE) },
+    )
+
     fun loadSnapshot(playerId: UUID): PermissionLoginResult {
         return try {
-            val snapshot = client.fetchSnapshot(playerId, context)
+            val (snapshot, prefetch) = fetchForLogin(playerId)
             snapshots.put(snapshot)
             logger.info(
-                "Permission snapshot fetched successfully (playerId={}, policyVersion={})",
+                "Permission snapshot fetched successfully (playerId={}, policyVersion={}, prefetch={})",
                 playerId,
                 snapshot.policyVersion,
+                prefetch.name.lowercase(),
             )
             PermissionLoginResult.allowed(snapshot)
         } catch (exception: SnapshotUnavailableException) {

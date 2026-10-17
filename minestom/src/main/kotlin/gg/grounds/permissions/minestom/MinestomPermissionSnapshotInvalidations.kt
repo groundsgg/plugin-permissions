@@ -59,6 +59,7 @@ private constructor(
             runtimeClient: PermissionRuntimeClient,
             context: PermissionSnapshotContext,
             logger: Logger,
+            onInvalidated: (UUID) -> Unit,
         ): MinestomPermissionSnapshotInvalidations? =
             start(
                 config = config,
@@ -71,6 +72,7 @@ private constructor(
                     }
                 },
                 logger = logger,
+                onInvalidated = onInvalidated,
             )
 
         internal fun start(
@@ -82,6 +84,7 @@ private constructor(
             logger: Logger,
             subscriberFactory: MinestomInvalidationSubscriberFactory = DEFAULT_SUBSCRIBER_FACTORY,
             executorFactory: () -> ExecutorService = DEFAULT_EXECUTOR_FACTORY,
+            onInvalidated: (UUID) -> Unit = {},
         ): MinestomPermissionSnapshotInvalidations? {
             config ?: return null
             val executor =
@@ -105,7 +108,10 @@ private constructor(
                 )
             val subscriber =
                 try {
-                    subscriberFactory.subscribe(config, logger, coordinator::invalidate)
+                    subscriberFactory.subscribe(config, logger) { playerId ->
+                        onInvalidated(playerId)
+                        coordinator.invalidate(playerId)
+                    }
                 } catch (_: RuntimeException) {
                     executor.shutdownNow()
                     logger.warn(

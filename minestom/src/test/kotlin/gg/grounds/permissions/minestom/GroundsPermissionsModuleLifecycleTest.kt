@@ -1,6 +1,7 @@
 package gg.grounds.permissions.minestom
 
 import gg.grounds.modules.ServiceRegistry
+import gg.grounds.modules.qualifiedServiceKey
 import gg.grounds.permissions.InMemoryPermissionSnapshots
 import gg.grounds.permissions.PermissionSnapshot
 import gg.grounds.permissions.catalog.PermissionManifest
@@ -9,6 +10,7 @@ import gg.grounds.permissions.client.PermissionRuntimeClient
 import gg.grounds.permissions.client.PermissionSnapshotContext
 import gg.grounds.permissions.invalidation.PermissionSnapshotInvalidationConfig
 import gg.grounds.runtime.GroundsServerContext
+import gg.grounds.runtime.PlayerPrefetch
 import gg.grounds.runtime.ServerType
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
@@ -24,7 +26,9 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
 class GroundsPermissionsModuleLifecycleTest {
@@ -37,7 +41,7 @@ class GroundsPermissionsModuleLifecycleTest {
     fun `install composes the runtime and passes its real dependencies to invalidations`() {
         val captures = mutableListOf<MinestomInvalidationCapture>()
         val handle = MinestomLifecycleHandle()
-        val fixture = fixture { config, snapshots, client, context, logger ->
+        val fixture = fixture { config, snapshots, client, context, logger, _ ->
             captures += MinestomInvalidationCapture(config, snapshots, client, context, logger)
             handle
         }
@@ -57,10 +61,24 @@ class GroundsPermissionsModuleLifecycleTest {
     }
 
     @Test
+    fun `install registers the snapshot prefetch for pushed match rosters`() {
+        val fixture = fixture { _, _, _, _, _, _ -> null }
+
+        fixture.module.install(fixture.context)
+
+        verify(fixture.services)
+            .register(
+                eq(qualifiedServiceKey<PlayerPrefetch>(GroundsPermissionsModule.MODULE_ID)),
+                any<PlayerPrefetch>(),
+            )
+        fixture.module.stop()
+    }
+
+    @Test
     fun `reinstall closes the previous invalidation handle before creating the next`() {
         val events = mutableListOf<String>()
         var installation = 0
-        val fixture = fixture { _, _, _, _, _ ->
+        val fixture = fixture { _, _, _, _, _, _ ->
             installation++
             val current = installation
             events += "create-$current"
@@ -80,7 +98,7 @@ class GroundsPermissionsModuleLifecycleTest {
         val starterEntered = CountDownLatch(1)
         val releaseStarter = CountDownLatch(1)
         val handle = MinestomLifecycleHandle()
-        val fixture = fixture { _, _, _, _, _ ->
+        val fixture = fixture { _, _, _, _, _, _ ->
             starterEntered.countDown()
             check(releaseStarter.await(5, TimeUnit.SECONDS))
             handle
@@ -101,7 +119,7 @@ class GroundsPermissionsModuleLifecycleTest {
     @Test
     fun `failure in later manifest setup never starts invalidation resources`() {
         var starterCalls = 0
-        val fixture = fixture { _, _, _, _, _ ->
+        val fixture = fixture { _, _, _, _, _, _ ->
             starterCalls++
             MinestomLifecycleHandle()
         }
@@ -121,6 +139,7 @@ class GroundsPermissionsModuleLifecycleTest {
                 PermissionRuntimeClient,
                 PermissionSnapshotContext,
                 org.slf4j.Logger,
+                (UUID) -> Unit,
             ) -> AutoCloseable?
     ): MinestomCompositionFixture = MinestomCompositionFixture(starter)
 }
@@ -133,6 +152,7 @@ private class MinestomCompositionFixture(
             PermissionRuntimeClient,
             PermissionSnapshotContext,
             org.slf4j.Logger,
+            (UUID) -> Unit,
         ) -> AutoCloseable?
 ) {
     val client = MinestomCompositionClient()
