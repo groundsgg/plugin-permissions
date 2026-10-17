@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/groundsgg/plugin-permissions/compare/v1.3.0...v1.3.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* **players:** reuse tab rank badges for native nameplates ([#47](https://github.com/groundsgg/plugin-permissions/issues/47)) ([a46b827](https://github.com/groundsgg/plugin-permissions/commit/a46b827f570e1dc4724c4abd1828e35581663cac))
+
 ## [1.3.0](https://github.com/groundsgg/plugin-permissions/compare/v1.2.0...v1.3.0) (2026-10-17)
 
 
