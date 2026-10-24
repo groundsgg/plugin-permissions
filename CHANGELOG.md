@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/groundsgg/plugin-permissions/compare/v1.4.2...v1.5.0) (2026-10-24)
+
+
+### Features
+
+* **minestom:** expose the rank badge for other modules ([#59](https://github.com/groundsgg/plugin-permissions/issues/59)) ([61097b4](https://github.com/groundsgg/plugin-permissions/commit/61097b4b26e2599a70f586ff3b38bec6d742a83f))
+
 ## [1.4.2](https://github.com/groundsgg/plugin-permissions/compare/v1.4.1...v1.4.2) (2026-10-17)
 
 
