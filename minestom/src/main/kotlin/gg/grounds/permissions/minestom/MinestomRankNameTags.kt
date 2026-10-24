@@ -79,6 +79,8 @@ internal class MinestomRankNameTags(private val permissions: Permissions) : Auto
         MinecraftServer.getSchedulerManager()
             .scheduleTask(::refresh, TaskSchedule.nextTick(), TaskSchedule.seconds(1))
 
+    fun isBedrock(id: UUID): Boolean = editions.isBedrock(id)
+
     @Synchronized
     private fun refresh() {
         val players = MinecraftServer.getConnectionManager().onlinePlayers.associateBy { it.uuid }
