@@ -5,6 +5,7 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.JoinConfiguration
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.entity.Player
 import net.minestom.server.network.packet.server.ServerPacket
@@ -15,7 +16,9 @@ import net.minestom.server.network.packet.server.play.UpdateScorePacket
 import net.minestom.server.scoreboard.Sidebar.NumberFormat
 
 /** Native second nameplate row, without extra entities or movement packets. */
-internal class RankNameTagStatusLine : AutoCloseable {
+internal class RankNameTagStatusLine(
+    private val extraStatus: (UUID, UUID) -> Component = { _, _ -> Component.empty() }
+) : AutoCloseable {
     private data class Viewer(
         val player: Player,
         var scores: Map<String, Component> = emptyMap(),
@@ -61,11 +64,27 @@ internal class RankNameTagStatusLine : AutoCloseable {
         val online = players.mapTo(mutableSetOf()) { it.uuid }
         viewers.keys.retainAll(online)
         gameObjectives.keys.retainAll(online)
-        val subjects = players.filter { isBedrock(it.uuid) }
-        val javaScores = subjects.associate { it.username to JAVA_ICON }
-        val bedrockScores = subjects.associate { it.username to BEDROCK_ICON }
+        val bedrockSubjects =
+            players.filter { isBedrock(it.uuid) }.mapTo(mutableSetOf()) { it.uuid }
         players.forEach { player ->
-            if (subjects.isEmpty()) {
+            val icon = if (isBedrock(player.uuid)) BEDROCK_ICON else JAVA_ICON
+            val scores = buildMap {
+                players.forEach { subject ->
+                    val parts =
+                        listOfNotNull(
+                            extraStatus(subject.uuid, player.uuid).takeUnless {
+                                it == Component.empty()
+                            },
+                            icon.takeIf { subject.uuid in bedrockSubjects },
+                        )
+                    if (parts.isNotEmpty())
+                        put(
+                            subject.username,
+                            Component.join(JoinConfiguration.separator(Component.space()), parts),
+                        )
+                }
+            }
+            if (scores.isEmpty()) {
                 viewers.remove(player.uuid)?.let { remove(it.player) }
                 return@forEach
             }
@@ -83,7 +102,6 @@ internal class RankNameTagStatusLine : AutoCloseable {
                     )
                     Viewer(player)
                 }
-            val scores = if (isBedrock(player.uuid)) bedrockScores else javaScores
             (state.scores.keys - scores.keys).forEach { name ->
                 player.sendPacket(ResetScorePacket(name, objective))
             }

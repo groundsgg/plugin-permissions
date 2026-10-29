@@ -20,6 +20,28 @@ import org.junit.jupiter.api.Test
 
 class RankNameTagStatusLineTest {
     @Test
+    fun `voice status shares the bedrock row and is visible even without bedrock players`() {
+        val connection = RecordingConnection()
+        val viewer = player("Viewer", connection)
+        val other = player("Other", RecordingConnection())
+        val line = RankNameTagStatusLine { subject, target ->
+            if (subject == other.uuid && target == viewer.uuid) Component.text('\uE005')
+            else Component.empty()
+        }
+        line.refresh(listOf(viewer, other)) { false }
+        var score = connection.packets.filterIsInstance<UpdateScorePacket>().single()
+        assertEquals("Other", score.entityName())
+        assertEquals("\uE005", plain(score.numberFormat()!!.content()!!))
+        line.refresh(listOf(viewer, other)) { it == other.uuid }
+        score = connection.packets.filterIsInstance<UpdateScorePacket>().last()
+        assertEquals("\uE005 \uE004", plain(score.numberFormat()!!.content()!!))
+        line.close()
+    }
+
+    private fun plain(c: Component): String =
+        (if (c is TextComponent) c.content() else "") + c.children().joinToString("") { plain(it) }
+
+    @Test
     fun `bedrock status uses native below-name slot and the viewers own font`() {
         val javaConnection = RecordingConnection()
         val bedrockConnection = RecordingConnection()

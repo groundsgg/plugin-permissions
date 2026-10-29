@@ -13,7 +13,16 @@ class GroundsPermissionsModuleProvider : GroundsModuleProvider {
     override val version: String = BuildInfo.VERSION
     override val serverTypes: Set<ServerType> = ServerType.entries.toSet()
     override val descriptor: ModuleDescriptor =
-        ModuleDescriptor(id = id, version = version, provides = setOf(serviceKey<Permissions>()))
+        ModuleDescriptor(
+            id = id,
+            version = version,
+            provides =
+                setOf(
+                    serviceKey<Permissions>(),
+                    serviceKey<RankBadges>(),
+                    serviceKey<NameplateStatuses>(),
+                ),
+        )
 
     override fun create(): GroundsModule = GroundsPermissionsModule()
 }
