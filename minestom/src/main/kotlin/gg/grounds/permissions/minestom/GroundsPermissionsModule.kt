@@ -189,6 +189,7 @@ internal constructor(
         ctx.services.register<Permissions>(permissions)
         val nameTags = runtimePlatform.startNameTags(permissions)
         this.nameTags = nameTags
+        ctx.services.register<NameplateStatuses>(nameTags?.statuses ?: NativeNameplateStatuses())
         // The name tags own the only edition roster; without them every viewer counts as Java.
         ctx.services.register<RankBadges>(
             PermissionRankBadges(permissions) { id -> nameTags?.isBedrock(id) ?: false }

@@ -27,7 +27,8 @@ internal class MinestomRankNameTags(private val permissions: Permissions) : Auto
     private val entries = mutableMapOf<UUID, Entry>()
     private val editions = ProxyPlayerEditions()
     private val viewerEditions = mutableMapOf<UUID, Boolean>()
-    private val statusLine = RankNameTagStatusLine()
+    val statuses = NativeNameplateStatuses()
+    private val statusLine = RankNameTagStatusLine(statuses::status)
     private val node = EventNode.all("grounds-rank-nameplates")
 
     init {
