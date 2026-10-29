@@ -5,6 +5,8 @@ import gg.grounds.i18n.SystemCategory
 import gg.grounds.i18n.SystemLevel
 import gg.grounds.i18n.Translations
 import java.util.Locale
+import net.kyori.adventure.text.event.ClickEvent
+import net.kyori.adventure.text.event.HoverEvent
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -50,6 +52,39 @@ class PermissionsMessagesTest {
                 PermissionsMessage.entries,
                 translations = listOf(Locale.GERMAN),
             ),
+        )
+    }
+
+    @Test
+    fun `localized permission help actions preserve commands and distinguish execution from entry`() {
+        val status =
+            PermissionCommandInteraction.render(
+                messages,
+                PermissionsMessage.HELP_STATUS,
+                Locale.GERMAN,
+            )
+        val check =
+            PermissionCommandInteraction.render(
+                messages,
+                PermissionsMessage.USAGE_PERMISSION_CHECK,
+                Locale.GERMAN,
+            )
+
+        assertEquals("Berechtigungsstatus anzeigen", plain.serialize(status))
+        assertEquals(ClickEvent.runCommand("/perm status"), status.clickEvent())
+        assertEquals(
+            HoverEvent.showText(net.kyori.adventure.text.Component.text("/perm status")),
+            status.hoverEvent(),
+        )
+        assertEquals("Spielerberechtigung prüfen", plain.serialize(check))
+        assertEquals(ClickEvent.suggestCommand("/perm user "), check.clickEvent())
+        assertEquals(
+            HoverEvent.showText(
+                net.kyori.adventure.text.Component.text(
+                    "/perm user <player> permission check <node> [scope]"
+                )
+            ),
+            check.hoverEvent(),
         )
     }
 }

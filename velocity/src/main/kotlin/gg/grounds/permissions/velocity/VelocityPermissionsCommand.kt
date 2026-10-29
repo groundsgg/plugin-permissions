@@ -65,7 +65,19 @@ class VelocityPermissionsCommand(
     }
 
     private fun sendLocalized(source: CommandSource, message: LocalizedPermissionMessage) {
-        messages.send(source, message.key, *message.args.map { it.key to it.value }.toTypedArray())
+        if (message.args.isEmpty() && PermissionCommandInteraction.supports(message.key)) {
+            messages.sendRendered(
+                source,
+                message.key,
+                PermissionCommandInteraction.render(messages, message.key, source),
+            )
+        } else {
+            messages.send(
+                source,
+                message.key,
+                *message.args.map { it.key to it.value }.toTypedArray(),
+            )
+        }
     }
 
     companion object {
