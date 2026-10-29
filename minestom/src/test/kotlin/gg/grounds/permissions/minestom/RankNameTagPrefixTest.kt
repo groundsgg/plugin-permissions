@@ -5,12 +5,30 @@ import gg.grounds.permissions.minestom.badge.TabBadge
 import gg.grounds.permissions.minestom.badge.TabGlyphs
 import gg.grounds.permissions.minestom.badge.TabSpaces
 import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.TextComponent
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextColor
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
 
 class RankNameTagPrefixTest {
+    @Test
+    fun `overhead prefixes omit status while tab prefixes keep it`() {
+        val role = RoleMetadata("administrator", "Administrator", color = "#C9826B")
+        for (bedrockViewer in listOf(false, true)) {
+            val overhead =
+                RankNameTagPrefix.format(role, true, bedrockViewer, includeStatus = false)
+            assertEquals(RankNameTagPrefix.format(role, false, bedrockViewer), overhead)
+            fun plain(c: Component): String =
+                (if (c is TextComponent) c.content() else "") +
+                    c.children().joinToString("") { plain(it) }
+            assertFalse(
+                plain(overhead).contains(if (bedrockViewer) '\uE500' else TabGlyphs.BEDROCK_ICON)
+            )
+        }
+    }
+
     @Test
     fun `bedrock viewers get their full colour atlas badge without Java font glyphs`() {
         assertEquals(

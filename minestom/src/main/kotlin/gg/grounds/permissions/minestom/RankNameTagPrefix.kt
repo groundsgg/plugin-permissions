@@ -13,7 +13,12 @@ import net.kyori.adventure.text.format.TextColor
 
 /** Uses the tab list's badge glyphs, label metrics and role aliases without its column padding. */
 internal object RankNameTagPrefix {
-    fun format(role: RoleMetadata, bedrock: Boolean, bedrockViewer: Boolean = false): Component {
+    fun format(
+        role: RoleMetadata,
+        bedrock: Boolean,
+        bedrockViewer: Boolean = false,
+        includeStatus: Boolean = true,
+    ): Component {
         val row = Component.text()
         val colour =
             role.color?.let(TextColor::fromHexString) ?: TextColor.fromHexString("#F3F0EA")!!
@@ -24,7 +29,7 @@ internal object RankNameTagPrefix {
             )
             row.append(gap(bedrockViewer))
         }
-        if (bedrock) {
+        if (bedrock && includeStatus) {
             row.append(
                 Component.text(
                         if (bedrockViewer) '\uE500' else TabGlyphs.BEDROCK_ICON,
