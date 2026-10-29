@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.0](https://github.com/groundsgg/plugin-permissions/compare/v1.5.0...v1.6.0) (2026-10-29)
+
+
+### Features
+
+* **chat:** make permission command guidance clickable ([#62](https://github.com/groundsgg/plugin-permissions/issues/62)) ([d54db15](https://github.com/groundsgg/plugin-permissions/commit/d54db15dcdb71273d4dbc30e017ea2b8f9d63684))
+
+
+### Bug Fixes
+
+* **minestom:** use gray player names and a native status row ([#61](https://github.com/groundsgg/plugin-permissions/issues/61)) ([6f28e05](https://github.com/groundsgg/plugin-permissions/commit/6f28e0531f678565728aaf097226b4907819c6fb))
+
 ## [1.5.0](https://github.com/groundsgg/plugin-permissions/compare/v1.4.2...v1.5.0) (2026-10-24)
 
 
