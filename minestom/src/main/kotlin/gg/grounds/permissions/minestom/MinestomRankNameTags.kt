@@ -12,7 +12,9 @@ import net.minestom.server.color.TeamColor
 import net.minestom.server.entity.Player
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.player.PlayerPacketOutEvent
+import net.minestom.server.network.packet.server.play.DisplayScoreboardPacket
 import net.minestom.server.network.packet.server.play.PlayerInfoUpdatePacket
+import net.minestom.server.network.packet.server.play.ScoreboardObjectivePacket
 import net.minestom.server.network.packet.server.play.TeamsPacket
 import net.minestom.server.scoreboard.Team
 import net.minestom.server.timer.TaskSchedule
@@ -25,9 +27,17 @@ internal class MinestomRankNameTags(private val permissions: Permissions) : Auto
     private val entries = mutableMapOf<UUID, Entry>()
     private val editions = ProxyPlayerEditions()
     private val viewerEditions = mutableMapOf<UUID, Boolean>()
+    private val statusLine = RankNameTagStatusLine()
     private val node = EventNode.all("grounds-rank-nameplates")
 
     init {
+        node.addListener(PlayerPacketOutEvent::class.java) { event ->
+            if (event.isCancelled) return@addListener
+            val packet = event.packet
+            if (packet !is DisplayScoreboardPacket && packet !is ScoreboardObjectivePacket)
+                return@addListener
+            if (!statusLine.observe(event.player, packet)) event.isCancelled = true
+        }
         node.addListener(PlayerPacketOutEvent::class.java) { event ->
             val packet = event.packet as? TeamsPacket ?: return@addListener
             if (!packet.teamName().startsWith("grank") || !editions.isBedrock(event.player.uuid))
@@ -102,15 +112,16 @@ internal class MinestomRankNameTags(private val permissions: Permissions) : Auto
                 return@forEach
             }
             val bedrock = editions.isBedrock(player.uuid)
-            val prefix = RankNameTagPrefix.format(role, bedrock)
-            val bedrockPrefix = RankNameTagPrefix.format(role, bedrock, bedrockViewer = true)
+            val prefix = RankNameTagPrefix.format(role, bedrock, includeStatus = false)
+            val bedrockPrefix =
+                RankNameTagPrefix.format(role, bedrock, bedrockViewer = true, includeStatus = false)
             if (existing == null) {
                 val teamName = "grank" + sequence.incrementAndGet().toString(36)
                 bedrockPrefixes[teamName] = prefix to bedrockPrefix
                 val team =
                     MinecraftServer.getTeamManager()
                         .createBuilder(teamName)
-                        .teamColor(TeamColor.WHITE)
+                        .teamColor(TeamColor.GRAY)
                         .allowFriendlyFire()
                         .prefix(prefix)
                         .build()
@@ -142,6 +153,7 @@ internal class MinestomRankNameTags(private val permissions: Permissions) : Auto
                 }
             }
         }
+        statusLine.refresh(players.values, editions::isBedrock)
     }
 
     private fun remove(id: UUID, player: Player?) {
@@ -155,6 +167,7 @@ internal class MinestomRankNameTags(private val permissions: Permissions) : Auto
     override fun close() {
         task.cancel()
         MinecraftServer.getGlobalEventHandler().removeChild(node)
+        statusLine.close()
         editions.close()
         val players = MinecraftServer.getConnectionManager().onlinePlayers.associateBy { it.uuid }
         entries.keys.toList().forEach { remove(it, players[it]) }
