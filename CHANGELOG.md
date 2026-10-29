@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.1](https://github.com/groundsgg/plugin-permissions/compare/v1.6.0...v1.6.1) (2026-10-29)
+
+
+### Bug Fixes
+
+* **minestom:** combine module icons in the native nameplate row ([#64](https://github.com/groundsgg/plugin-permissions/issues/64)) ([c87a151](https://github.com/groundsgg/plugin-permissions/commit/c87a151ac2297de79561769672827ee6604bc881))
+
 ## [1.6.0](https://github.com/groundsgg/plugin-permissions/compare/v1.5.0...v1.6.0) (2026-10-29)
 
 
