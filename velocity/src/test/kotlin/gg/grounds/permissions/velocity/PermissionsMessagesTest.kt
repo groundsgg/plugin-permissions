@@ -39,7 +39,10 @@ class PermissionsMessagesTest {
                 "player" to "<red>Ada</red>",
             )
 
-        assertEquals("Spieler ist nicht online: <red>Ada</red>", plain.serialize(rendered))
+        assertEquals(
+            "Du kannst diesen Spieler gerade nicht prüfen, weil er offline ist: <red>Ada</red>",
+            plain.serialize(rendered),
+        )
     }
 
     @Test
