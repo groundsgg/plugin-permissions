@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.7.0](https://github.com/groundsgg/plugin-permissions/compare/v1.6.1...v1.7.0) (2026-11-28)
+
+
+### Features
+
+* render system chat badges for eligible recipients ([#66](https://github.com/groundsgg/plugin-permissions/issues/66)) ([54592b1](https://github.com/groundsgg/plugin-permissions/commit/54592b169da5e9ca655fa2ea5609d2115d93c1cc))
+
+
+### Bug Fixes
+
+* personalize permission feedback across platforms ([#68](https://github.com/groundsgg/plugin-permissions/issues/68)) ([c78f323](https://github.com/groundsgg/plugin-permissions/commit/c78f323d45bbbc04a1db1d5108941feeb0a55437))
+
 ## [1.6.1](https://github.com/groundsgg/plugin-permissions/compare/v1.6.0...v1.6.1) (2026-10-29)
 
 
