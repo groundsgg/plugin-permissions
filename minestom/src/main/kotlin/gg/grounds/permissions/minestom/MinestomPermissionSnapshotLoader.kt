@@ -68,7 +68,7 @@ data class PermissionLoginResult(
             PermissionLoginResult(
                 allowed = false,
                 snapshot = null,
-                message = "Permissions are currently unavailable. Please try again later.",
+                message = gg.grounds.permissions.PermissionLoginMessages.unavailable(),
             )
     }
 }

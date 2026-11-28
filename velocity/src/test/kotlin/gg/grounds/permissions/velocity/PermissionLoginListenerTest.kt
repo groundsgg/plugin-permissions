@@ -61,7 +61,7 @@ class PermissionLoginListenerTest {
         val rendered = plain.serialize(listener.denialMessage(PermissionLoginResult.denied()))
 
         assertEquals(
-            "Berechtigungen sind derzeit nicht verfügbar. Bitte versuche es später erneut.",
+            "Du kannst gerade nicht beitreten, weil deine Berechtigungen nicht geladen werden konnten. Versuch es gleich noch einmal.",
             rendered,
         )
     }

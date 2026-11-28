@@ -37,6 +37,11 @@ class PermissionLoginListener(
 
     internal fun denialMessage(result: PermissionLoginResult): Component {
         val localized = result.localized ?: return Component.text(requireNotNull(result.message))
+        if (localized.key == PermissionsMessage.PERMISSIONS_UNAVAILABLE) {
+            return Component.text(
+                gg.grounds.permissions.PermissionLoginMessages.unavailable(loginLocale)
+            )
+        }
         return messages.render(
             localized.key,
             loginLocale,

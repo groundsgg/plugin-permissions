@@ -331,7 +331,7 @@ data class PermissionLoginResult(val allowed: Boolean, val message: String) {
         fun denied() =
             PermissionLoginResult(
                 false,
-                "Permissions are currently unavailable. Please try again later.",
+                gg.grounds.permissions.PermissionLoginMessages.unavailable(),
             )
     }
 }
